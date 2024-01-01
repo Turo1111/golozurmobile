@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "golozurapp2",
-    "slug": "golozurapp2",
+    "slug": "adm-golozur",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,10 +21,17 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.turo1111.admgolozur"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "cf336551-a449-4d6f-b10b-12ae0860653a"
+      }
+    },
+    "owner": "turo1111"
   }
 }
