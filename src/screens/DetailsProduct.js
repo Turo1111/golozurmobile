@@ -32,9 +32,7 @@ export default function DetailsProduct({ route, navigation }) {
   }, [])
 
   useEffect(()=>{
-    const socket = io('https://apigolozur.onrender.com'
-
-)
+    const socket = io('http://10.0.2.2:3002')
     socket.on(`/product`, (socket) => {
       console.log("socket", socket)
       setDetails((prevData)=>{

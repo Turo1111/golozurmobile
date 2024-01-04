@@ -8,6 +8,7 @@ import { useAppDispatch, useAppSelector } from '../redux/hook'
 import { getUser } from '../redux/userSlice'
 import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice'
 import { setAlert } from '../redux/alertSlice'
+import { io } from 'socket.io-client'
 
 export default function EditProduct({ route, navigation}) {
 
@@ -21,14 +22,12 @@ export default function EditProduct({ route, navigation}) {
         validateOnChange: false,
         onSubmit: (formValue) => {
           if (formValue.descripcion === '' || formValue.stock <= 0 || formValue.precioUnitario <= 0){
-            console.log('entre aqui');
             dispatch(setAlert({
               message: `Falta descripcion o stock o precio unitario `,
               type: 'warning'
             }))
             return
           }
-          console.log(formValue);
           if (formValue.categoria === '' || formValue.proveedor === '' || formValue.marca === ''){
             dispatch(setAlert({
               message: `Falta categoria o proveedor o marca `,
@@ -62,6 +61,22 @@ export default function EditProduct({ route, navigation}) {
             }))}) 
         }
     })
+
+    useEffect(()=>{
+      const socket = io('http://10.0.2.2:3002')
+      socket.on(`/product`, (socket) => {
+        console.log("socket", socket)
+        setDetails((prevData)=>{
+          if (socket.data._id === id) {
+            return socket.data
+          }
+          return prevData
+        })
+      })
+      return () => {
+        socket.disconnect();
+      }; 
+    },[id])
 
   return (
     <View style={{width: '100%', height: '100%'}}>

@@ -9,6 +9,7 @@ import Button from '../components/Button';
 import {useInputValue} from '../hooks/useInputValue'
 import { io } from 'socket.io-client';
 import UpdatePrice from '../components/UpdatePrice';
+import FilterProduct from '../components/FilterProduct';
 
 const renderItem = ({ item, navigation }) => {
   /* console.log(item.descripcion); */
@@ -21,11 +22,11 @@ const renderItem = ({ item, navigation }) => {
     }}>
         <View>
             <Text style={styles.titleProduct}>{item.descripcion}</Text>
-            <Text style={{fontSize: 14, color: '#7F8487'}}>{item.categoria}</Text>
+            <Text style={{fontSize: 14, color: '#7F8487'}}>{item.NameCategoria}</Text>
         </View>
         <View>
           <Text style={{fontSize: 18, color: '#FA9B50', fontFamily: 'Cairo-Bold'}}>$ {item.precioUnitario}</Text>
-            <Text style={{fontSize: 14, color: '#7F8487'}}>{item.marca}</Text>
+            <Text style={{fontSize: 14, color: '#7F8487'}}>{item.NameMarca}</Text>
         </View>
     </Pressable>
   );
@@ -39,6 +40,10 @@ export default function Product({navigation}) {
     const [dataSearch, setDataSearch] = useState([])
     const [query, setQuery] = useState({skip: 0, limit: 15})
     const [openUpdate, setOpenUpdate] = useState(false)
+    const [activeCategorie, setActiveCategorie] = useState({_id: 1 , descripcion: 'Todas'})
+    const [activeBrand, setActiveBrand] = useState({_id: 1 , descripcion: 'Todas'})
+    const [activeProvider, setActiveProvider] = useState({_id: 1 , descripcion: 'Todas'})
+    const [openFilter, setOpenFilter] = useState(false)
 
     const search = useInputValue('','')
 
@@ -65,16 +70,10 @@ export default function Product({navigation}) {
         .catch(e=>console.log("error", e))
     }
 
-    const getProductSearch = (input) => {
-      apiClient.post(`/product/search`, {input},
-      {
-          headers: {
-            Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
-          },
-      })
+    const getProductSearch = (input, categorie, brand, provider) => {
+      apiClient.post(`/product/search`, {input, categoria: categorie, marca: brand, proveedor: provider})
       .then(response=>{
           setDataSearch(response.data)
-          dispatch(clearLoading())
       })
       .catch(e=>console.log("error", e))
     }
@@ -85,14 +84,12 @@ export default function Product({navigation}) {
 
     useEffect(()=>{
       if (search) {
-        if (search.value !== '') {
-          getProductSearch(search.value)
-        }
+        getProductSearch(search.value, activeCategorie._id, activeBrand._id, activeProvider._id)
       }
-    },[search])
+    },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('https://apigolozur.onrender.com')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`/product`, (socket) => {
         console.log("escucho socket",socket);
         refreshProducts()
@@ -117,14 +114,17 @@ export default function Product({navigation}) {
 
   return (
     <View>
-        <Search placeholder={'Buscar producto'} searchInput={search} />
+        <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>setOpenFilter(true)} />
         <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginBottom: 15}} >
           <Button text={'Nuevo'} fontSize={14} width={'20%'} onPress={()=>{navigation.navigate('NewProduct')}} />
           <Button text={'Actualizar'} fontSize={14} width={'20%'} onPress={()=>setOpenUpdate(true)} />
         </View>
         <FlatList
           style={{height: '83%'}}
-          data={search && (search.value === '' ? data : dataSearch)}
+          data={search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ? 
+            dataSearch : 
+            data
+          }
           renderItem={({ item }) => renderItem({ item, navigation })}
           keyExtractor={(item) => item._id}
           onEndReached={()=>{
@@ -142,6 +142,11 @@ export default function Product({navigation}) {
           }}
         />
         <UpdatePrice open={openUpdate} onClose={()=>setOpenUpdate(false)} updateQuery={refreshProducts} />
+        <FilterProduct open={openFilter} onClose={()=>setOpenFilter(false)} activeBrand={activeBrand._id} activeCategorie={activeCategorie._id} activeProvider={activeProvider._id}
+          selectCategorie={(item)=>setActiveCategorie(item)}
+          selectBrand={(item)=>setActiveBrand(item)}
+          selectProvider={(item)=>setActiveProvider(item)}
+        />
     </View>
   )
 }
