@@ -116,8 +116,8 @@ export default function Product({navigation}) {
     <View>
         <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>setOpenFilter(true)} />
         <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginBottom: 15}} >
-          <Button text={'Nuevo'} fontSize={14} width={'20%'} onPress={()=>{navigation.navigate('NewProduct')}} />
-          <Button text={'Actualizar'} fontSize={14} width={'20%'} onPress={()=>setOpenUpdate(true)} />
+          <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={()=>{navigation.navigate('NewProduct')}} />
+          <Button text={'Actualizar'} fontSize={14} width={'45%'} onPress={()=>setOpenUpdate(true)} />
         </View>
         <FlatList
           style={{height: '83%'}}

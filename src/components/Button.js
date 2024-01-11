@@ -6,7 +6,7 @@ export default function Button({text, width,  onPress, disabled, icon , color, f
  
 
   return (
-    <Pressable style={styles.button} 
+    <Pressable style={[styles.button, { width: width ? width : '45%'}]} 
       onPress={onPress} 
       disabled={disabled}
     >
@@ -20,7 +20,6 @@ export default function Button({text, width,  onPress, disabled, icon , color, f
 
 const styles = StyleSheet.create({
     button: {
-        width: '45%',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',

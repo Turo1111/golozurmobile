@@ -1,5 +1,5 @@
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import React from 'react'
+import React, { useState } from 'react'
 import Button from '../components/Button'
 import { useFormik } from 'formik'
 import InputSelectAdd from '../components/InputSelectAdd'
@@ -8,6 +8,8 @@ import { useAppDispatch, useAppSelector } from '../redux/hook'
 import { getUser } from '../redux/userSlice'
 import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice'
 import { setAlert } from '../redux/alertSlice'
+import ChooseFile from '../components/ChooseFile'
+import * as FileSystem from 'expo-file-system';
 
 export default function NewProduct({navigation}) {
 
@@ -28,14 +30,15 @@ export default function NewProduct({navigation}) {
             bulto: 0,
             precioBulto: 0,
             precioCompra: 0,
-            precioUnitario: 0,
+            precioUnitario: 0
         },
         validateOnChange: false,
-        onSubmit: (formValue) => {
-            if (formValue.descripcion === '' || formValue.stock <= 0 || formValue.precioUnitario <= 0){
+        onSubmit: async (formValue) => {
+          console.log(formValue)
+           if (formValue.descripcion === '' || formValue.stock <= 0 || formValue.precioUnitario <= 0){
               console.log('entre aqui');
               dispatch(setAlert({
-                message: `Falta descripcion o stock o precio unitario `,
+                message: `Falta descripcion o stock o precio unitario`,
                 type: 'warning'
               }))
               return
@@ -50,10 +53,10 @@ export default function NewProduct({navigation}) {
           dispatch(setLoading({
               message: `Cargando nuevos productos`
           }))
-           apiClient.post(`/product`, formValue,
+          apiClient.post(`/product`, formValue,
             {
               headers: {
-                Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+                Authorization: `Bearer ${user.token}`
               }
             })
             .then((r)=>{
@@ -70,7 +73,7 @@ export default function NewProduct({navigation}) {
               dispatch(setAlert({
               message: `${e.response.data.error || 'Ocurrio un error'}`,
               type: 'error'
-            }))})
+            }))}) 
         }
     })
 
@@ -93,15 +96,15 @@ export default function NewProduct({navigation}) {
                     }}
                     inputMode='numeric'
                 />
-                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Codigo de barra</Text>
-                <TextInput placeholder={'Codigo de barra'} style={styles.input}
-                    value={formik.values.codigoBarra}
-                    onChangeText={(text)=> formik.setFieldValue('codigoBarra', text)}
-                />
-                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Sabor</Text>
-                <TextInput placeholder={'Sabor'} style={styles.input}
-                    value={formik.values.sabor}
-                    onChangeText={(text)=> formik.setFieldValue('sabor', text)}
+                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Precio unitario</Text>
+                <TextInput placeholder={'Precio unitario'} style={styles.input}
+                    value={formik.values.precioUnitario}
+                    onChangeText={(text)=> {
+                      if (!isNaN(text)) { 
+                        formik.setFieldValue('precioUnitario', text)
+                      } 
+                    }}
+                    inputMode='numeric'
                 />
                 <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Categoria</Text>
                 <InputSelectAdd
@@ -129,6 +132,20 @@ export default function NewProduct({navigation}) {
                       formik.setFieldValue('NameProveedor', item.descripcion)
                     }}
                     name={'Proveedor'} path={'provider'}
+                />
+                {/* <ChooseFile onSuccess={(image)=>{
+                  console.log(image)
+                  formik.setFieldValue('myfile', image)
+                }} onError={(error)=>console.log(error)} /> */}
+                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Codigo de barra</Text>
+                <TextInput placeholder={'Codigo de barra'} style={styles.input}
+                    value={formik.values.codigoBarra}
+                    onChangeText={(text)=> formik.setFieldValue('codigoBarra', text)}
+                />
+                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Sabor</Text>
+                <TextInput placeholder={'Sabor'} style={styles.input}
+                    value={formik.values.sabor}
+                    onChangeText={(text)=> formik.setFieldValue('sabor', text)}
                 />
                 <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Bulto</Text>
                 <TextInput placeholder={'Bulto'} style={styles.input}
@@ -160,20 +177,10 @@ export default function NewProduct({navigation}) {
                     }}
                     inputMode='numeric'
                 />
-                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Precio unitario</Text>
-                <TextInput placeholder={'Precio unitario'} style={styles.input}
-                    value={formik.values.precioUnitario}
-                    onChangeText={(text)=> {
-                      if (!isNaN(text)) { 
-                        formik.setFieldValue('precioUnitario', text)
-                      } 
-                    }}
-                    inputMode='numeric'
-                />
             </View>
         </ScrollView>
         <View style={{flexDirection: 'row', justifyContent: 'space-around', marginVertical: 15}}>
-          <Button text={'Cancelar'} onPress={()=>{}} />
+          <Button text={'Cancelar'} onPress={()=>navigation.goBack()} />
           <Button text={'Aceptar'} onPress={formik.handleSubmit} />
         </View>
     </View>
@@ -191,5 +198,14 @@ const styles = StyleSheet.create({
         borderColor: '#D9D9D9',
         fontSize: 14,
         backgroundColor: '#fff'
-    }
+    },
+    choose: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    text: {
+      fontSize: 20,
+      fontWeight: "bold",
+    },
 })

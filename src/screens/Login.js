@@ -18,8 +18,8 @@ export default function Login({navigation}) {
 
     const formik = useFormik({
         initialValues: {
-            nickname: '',
-            password: ''
+            nickname: 'zurita.matias',
+            password: '123'
         },
         validateOnChange: false,
         onSubmit: (formValue) => {
