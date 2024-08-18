@@ -6,26 +6,33 @@ export default function Button({text, width,  onPress, disabled, icon , color, f
  
 
   return (
-    <Pressable style={[styles.button, { width: width ? width : '45%'}]} 
+    <Pressable style={[styles.button,
+      {
+        backgroundColor:  disabled ? '#d9d9d9' : "#fff",
+        width: width ? width : '45%'
+      },
+      style
+    ]} 
       onPress={onPress} 
       disabled={disabled}
     >
         {
           icon && icon
         }
-        <Text style={{fontSize: fontSize ? fontSize : 16, fontFamily: 'Cairo-Bold', color: '#fff' }}>{(text).toUpperCase()}</Text>
+        <Text style={{fontSize: fontSize ? fontSize : 16, fontFamily: 'Cairo-Bold', color: color ? color : '#7F8487' }}>{(text).toUpperCase()}</Text>
     </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
     button: {
+        width: '45%',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#537FE7',
-        borderRadius: 10,
-        marginTop: 15,
-        paddingVertical: 5
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderBottomWidth: 2,
+        borderBottomColor: '#2366CB'
     },
 })

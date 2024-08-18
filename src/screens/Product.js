@@ -12,7 +12,6 @@ import UpdatePrice from '../components/UpdatePrice';
 import FilterProduct from '../components/FilterProduct';
 
 const renderItem = ({ item, navigation }) => {
-  /* console.log(item.descripcion); */
   return(
     <Pressable style={styles.item} onPress={()=>{
       navigation.navigate('DetailsProduct', {
@@ -56,14 +55,17 @@ export default function Product({navigation}) {
         })
         .then(response=>{
             setData((prevData)=>{
+              if (prevData) {
                 if (prevData.length === 0) {
-                    return response.data
+                    return response.data.array
                 }
-                const newData = response.data.filter((element) => {
+                const newData = response.data.array.filter((element) => {
                   return prevData.findIndex((item) => item._id === element._id) === -1;
                 });
                 /* console.log([...prevData, ...newData]); */
                 return [...prevData, ...newData];
+              }
+              return []
             })
             dispatch(clearLoading())
         })
@@ -90,14 +92,22 @@ export default function Product({navigation}) {
 
     useEffect(()=>{
       const socket = io('http://10.0.2.2:3002')
-      socket.on(`/product`, (socket) => {
-        console.log("escucho socket",socket);
+      socket.on(`product`, (socket) => {
         refreshProducts()
+        setData((prevData)=>{
+          const exist = prevData.find((elem) => elem._id === socket.data._id )
+          if (exist) {
+            return prevData.map((item) =>
+              item._id === socket.data._id ? socket.data : item
+            )
+          }
+          return [...prevData]
+        })
       })
       return () => {
         socket.disconnect();
       }; 
-  },[data])
+    },[data])
 
   const refreshProducts = () => {
     search.clearValue()
@@ -115,7 +125,7 @@ export default function Product({navigation}) {
   return (
     <View>
         <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>setOpenFilter(true)} />
-        <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginBottom: 15}} >
+        <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15}} >
           <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={()=>{navigation.navigate('NewProduct')}} />
           <Button text={'Actualizar'} fontSize={14} width={'45%'} onPress={()=>setOpenUpdate(true)} />
         </View>

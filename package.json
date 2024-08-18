@@ -18,7 +18,7 @@
     "@reduxjs/toolkit": "^2.0.1",
     "axios": "^1.6.2",
     "expo": "~49.0.15",
-    "expo-dev-client": "~2.4.12",
+    "expo-dev-client": "~2.4.13",
     "expo-image-picker": "~14.3.2",
     "expo-status-bar": "~1.6.0",
     "formik": "^2.4.5",

@@ -137,18 +137,18 @@ export default function NewProduct({navigation}) {
                   console.log(image)
                   formik.setFieldValue('myfile', image)
                 }} onError={(error)=>console.log(error)} /> */}
-                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Codigo de barra</Text>
+                {/* <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Codigo de barra</Text>
                 <TextInput placeholder={'Codigo de barra'} style={styles.input}
                     value={formik.values.codigoBarra}
                     onChangeText={(text)=> formik.setFieldValue('codigoBarra', text)}
-                />
+                /> */}
                 <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Sabor</Text>
                 <TextInput placeholder={'Sabor'} style={styles.input}
                     value={formik.values.sabor}
                     onChangeText={(text)=> formik.setFieldValue('sabor', text)}
                 />
                 <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Bulto</Text>
-                <TextInput placeholder={'Bulto'} style={styles.input}
+               {/*  <TextInput placeholder={'Bulto'} style={styles.input}
                     value={formik.values.bulto}
                     onChangeText={(text)=> {
                       if (!isNaN(text)) { 
@@ -166,7 +166,7 @@ export default function NewProduct({navigation}) {
                       } 
                     }}
                     inputMode='numeric'
-                />
+                /> */}
                 <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Precio de compra</Text>
                 <TextInput placeholder={'Precio de compra'} style={styles.input}
                     value={formik.values.precioCompra}

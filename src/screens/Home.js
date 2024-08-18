@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import React, { useEffect } from 'react'
 import FeatherIcons from 'react-native-vector-icons/Feather'
+import SaleIcons from 'react-native-vector-icons/MaterialCommunityIcons'
 import { clearUser, getUser } from '../redux/userSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import Logo from '../components/Logo';
@@ -31,11 +32,17 @@ export default function Home({navigation}) {
           <Text style={{fontSize: 14, fontFamily: 'Cairo-Bold', color: '#537FE7' }} >Cerrar sesion</Text> 
         </Pressable>
       </View>
-      <Pressable style={{borderColor: '#d9d9d9', borderWidth: 1, padding: 8, width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}} 
+      <Pressable style={{borderColor: '#d9d9d9', borderWidth: 1, padding: 8, width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginVertical: 10}} 
         onPress={()=>navigation.navigate('Product')}
       >
         <FeatherIcons name='box' size={35} color='#252525' style={{textAlign: 'center'}} />
         <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#252525', textAlign: 'center', marginHorizontal: 25 }}>PRODUCTOS</Text>
+      </Pressable>
+      <Pressable style={{borderColor: '#d9d9d9', borderWidth: 1, padding: 8, width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginVertical: 10}} 
+        onPress={()=>navigation.navigate('Sale')}
+      >
+        <SaleIcons name='sale' size={35} color='#252525' style={{textAlign: 'center'}} />
+        <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#252525', textAlign: 'center', marginHorizontal: 25 }}>VENTAS</Text>
       </Pressable>
     </View>
   )

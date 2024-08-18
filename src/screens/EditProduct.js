@@ -16,6 +16,7 @@ export default function EditProduct({ route, navigation}) {
     const user = useAppSelector(getUser)
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
+    console.log(details)
 
     const formik = useFormik({
         initialValues: initialValues(details),
@@ -92,11 +93,11 @@ export default function EditProduct({ route, navigation}) {
                     value={formik.values.stock}
                     onChangeText={(text)=> formik.setFieldValue('stock', text)}
                 />
-                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Codigo de barra</Text>
+                {/* <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Codigo de barra</Text>
                 <TextInput placeholder={'Codigo de barra'} style={styles.input}
                     value={formik.values.codigoBarra}
                     onChangeText={(text)=> formik.setFieldValue('codigoBarra', text)}
-                />
+                /> */}
                 <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Sabor</Text>
                 <TextInput placeholder={'Sabor'} style={styles.input}
                     value={formik.values.sabor}
@@ -129,7 +130,7 @@ export default function EditProduct({ route, navigation}) {
                     }}
                     name={'Proveedor'} path={'provider'}
                 />
-                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Bulto</Text>
+                {/* <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Bulto</Text>
                 <TextInput placeholder={'Bulto'} style={styles.input}
                     value={formik.values.bulto}
                     onChangeText={(text)=> formik.setFieldValue('bulto', text)}
@@ -138,7 +139,7 @@ export default function EditProduct({ route, navigation}) {
                 <TextInput placeholder={'Precio del bulto'} style={styles.input}
                     value={formik.values.precioBulto}
                     onChangeText={(text)=> formik.setFieldValue('precioBulto', text)}
-                />
+                /> */}
                 <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Precio de compra</Text>
                 <TextInput placeholder={'Precio de compra'} style={styles.input}
                     value={formik.values.precioCompra}

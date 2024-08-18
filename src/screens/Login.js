@@ -18,7 +18,7 @@ export default function Login({navigation}) {
 
     const formik = useFormik({
         initialValues: {
-            nickname: 'zurita.matias',
+            nickname: 'sergio',
             password: '123'
         },
         validateOnChange: false,
