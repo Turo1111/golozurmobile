@@ -9,10 +9,11 @@ import { getUser } from '../redux/userSlice';
 import apiClient from '../utils/client';
 import { useDispatch } from 'react-redux';
 import { setAlert } from '../redux/alertSlice';
+import useLocalStorage from '../hooks/useLocalStorage';
 
 export default function UpdatePrice({open, onClose, updateQuery}) {
 
-    const user = useAppSelector(getUser)
+  const user = useAppSelector(getUser)
     const dispatch = useDispatch()
 
     const formik = useFormik({

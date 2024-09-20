@@ -1,5 +1,5 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState } from 'react'
 import apiClient from '../utils/client'
 import { getUser } from '../redux/userSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
@@ -10,10 +10,17 @@ import {useInputValue} from '../hooks/useInputValue'
 import { io } from 'socket.io-client';
 import UpdatePrice from '../components/UpdatePrice';
 import FilterProduct from '../components/FilterProduct';
+import useLocalStorage from '../hooks/useLocalStorage';
+import useInternetStatus from '../hooks/useInternetStatus';
+import { OfflineContext } from '../context.js/contextOffline';
 
-const renderItem = ({ item, navigation }) => {
+const renderItem = ({ item, navigation, isConnected }) => {
+  
   return(
     <Pressable style={styles.item} onPress={()=>{
+      if(!isConnected){
+        return
+      }
       navigation.navigate('DetailsProduct', {
             id: item._id,
             name: item.descripcion,
@@ -32,7 +39,7 @@ const renderItem = ({ item, navigation }) => {
 }
 export default function Product({navigation}) {
 
-    const user = useAppSelector(getUser);
+    const user = useAppSelector(getUser)
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
     const [data, setData] = useState([])
@@ -43,8 +50,12 @@ export default function Product({navigation}) {
     const [activeBrand, setActiveBrand] = useState({_id: 1 , descripcion: 'Todas'})
     const [activeProvider, setActiveProvider] = useState({_id: 1 , descripcion: 'Todas'})
     const [openFilter, setOpenFilter] = useState(false)
+    const isConnected = useInternetStatus();
+    const {data: productLocalStorage} = useLocalStorage([],'productStorage')
 
     const search = useInputValue('','')
+
+    const {offline} = useContext(OfflineContext)
 
     const getProduct = (skip, limit) => {
         apiClient.post(`/product/skip`, {skip, limit},
@@ -73,7 +84,13 @@ export default function Product({navigation}) {
     }
 
     const getProductSearch = (input, categorie, brand, provider) => {
-      apiClient.post(`/product/search`, {input, categoria: categorie, marca: brand, proveedor: provider})
+      apiClient.post(`/product/search`, {input, categoria: categorie, marca: brand, proveedor: provider},
+        {
+          headers: {
+            Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+          },
+      }
+      )
       .then(response=>{
           setDataSearch(response.data)
       })
@@ -124,39 +141,56 @@ export default function Product({navigation}) {
 
   return (
     <View>
-        <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>setOpenFilter(true)} />
-        <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15}} >
-          <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={()=>{navigation.navigate('NewProduct')}} />
-          <Button text={'Actualizar'} fontSize={14} width={'45%'} onPress={()=>setOpenUpdate(true)} />
-        </View>
-        <FlatList
-          style={{height: '83%'}}
-          data={search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ? 
-            dataSearch : 
-            data
-          }
-          renderItem={({ item }) => renderItem({ item, navigation })}
-          keyExtractor={(item) => item._id}
-          onEndReached={()=>{
-            console.log('estoy en el final')
-            if(!loading.open){
-              if(search){
-                if(search.value === ''){
-                  dispatch(setLoading({
-                      message: `Cargando nuevos productos`
-                  }))
-                  setQuery({skip: query.skip+15, limit: query.limit})
+      {
+        offline ?
+        <View>
+          <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>setOpenFilter(true)} />
+          <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15}} >
+            <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={()=>{navigation.navigate('NewProduct')}} />
+            <Button text={'Actualizar'} fontSize={14} width={'45%'} onPress={()=>setOpenUpdate(true)} />
+          </View>
+          <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
+          <FlatList
+            style={{height: '83%'}}
+            data={search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ? 
+              dataSearch : 
+              data
+            }
+            renderItem={({ item }) => renderItem({ item, navigation, isConnected })}
+            keyExtractor={(item) => item._id}
+            onEndReached={()=>{
+              console.log('estoy en el final')
+              if(!loading.open){
+                if(search){
+                  if(search.value === ''){
+                    dispatch(setLoading({
+                        message: `Cargando nuevos productos`
+                    }))
+                    setQuery({skip: query.skip+15, limit: query.limit})
+                  }
                 }
               }
-            }
-          }}
-        />
-        <UpdatePrice open={openUpdate} onClose={()=>setOpenUpdate(false)} updateQuery={refreshProducts} />
-        <FilterProduct open={openFilter} onClose={()=>setOpenFilter(false)} activeBrand={activeBrand._id} activeCategorie={activeCategorie._id} activeProvider={activeProvider._id}
-          selectCategorie={(item)=>setActiveCategorie(item)}
-          selectBrand={(item)=>setActiveBrand(item)}
-          selectProvider={(item)=>setActiveProvider(item)}
-        />
+            }}
+          />
+          <UpdatePrice open={openUpdate} onClose={()=>setOpenUpdate(false)} updateQuery={refreshProducts} />
+          <FilterProduct open={openFilter} onClose={()=>setOpenFilter(false)} activeBrand={activeBrand._id} activeCategorie={activeCategorie._id} activeProvider={activeProvider._id}
+            selectCategorie={(item)=>setActiveCategorie(item)}
+            selectBrand={(item)=>setActiveBrand(item)}
+            selectProvider={(item)=>setActiveProvider(item)}
+          />
+        </View>
+        :
+        <View>
+          <Search placeholder={'Buscar producto'} searchInput={search} />
+          <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#C7253E', paddingHorizontal: 15 }} >Estas en modo sin conexion</Text>
+          <FlatList
+            style={{height: '83%'}}
+            data={productLocalStorage}
+            renderItem={({ item }) => renderItem({ item, navigation, isConnected })}
+            keyExtractor={(item) => item._id}
+          />
+        </View>    
+      }
     </View>
   )
 }

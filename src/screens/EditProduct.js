@@ -9,6 +9,7 @@ import { getUser } from '../redux/userSlice'
 import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice'
 import { setAlert } from '../redux/alertSlice'
 import { io } from 'socket.io-client'
+import useLocalStorage from '../hooks/useLocalStorage'
 
 export default function EditProduct({ route, navigation}) {
 

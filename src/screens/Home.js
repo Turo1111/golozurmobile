@@ -1,18 +1,27 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import React, { useEffect } from 'react'
+import React, { useContext, useEffect, useState } from 'react'
 import FeatherIcons from 'react-native-vector-icons/Feather'
 import SaleIcons from 'react-native-vector-icons/MaterialCommunityIcons'
 import { clearUser, getUser } from '../redux/userSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import Logo from '../components/Logo';
 import useLocalStorage from '../hooks/useLocalStorage';
+import useInternetStatus from '../hooks/useInternetStatus';
+import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
+import { clearLoading, setLoading } from '../redux/loadingSlice';
+import ToggleButton from '../components/ToggleButton';
+import { OfflineContext } from '../context.js/contextOffline';
 
 export default function Home({navigation}) {
 
   const user = useAppSelector(getUser);
   const dispatch = useAppDispatch();
   const {data: userLocalStorage, clearData} = useLocalStorage([], 'user')
-
+  const {data: saleStorage, clearData: clearDataSaleStorage} = useLocalStorage([],'saleStorage')
+  const {offline, setModeOffline, isSaleStorage} = useContext(OfflineContext)
+  
   const logOut = async () => {
     try {
       await clearData();
@@ -27,11 +36,23 @@ export default function Home({navigation}) {
     <View style={styles.container}>
       <Logo/>
       <View style={{flexDirection: 'row', padding: 15, justifyContent: 'space-between', alignItems: 'center'}}>
-        <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#252525' }} >Bienvenido, {userLocalStorage?.user}</Text> 
+        <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#252525' }} >Bienvenido, {userLocalStorage?.nickname}</Text> 
         <Pressable onPress={logOut} >
           <Text style={{fontSize: 14, fontFamily: 'Cairo-Bold', color: '#537FE7' }} >Cerrar sesion</Text> 
         </Pressable>
       </View>
+      <View style={{flexDirection: 'row', paddingHorizontal: 15, justifyContent: 'space-between', alignItems: 'center'}}>
+        <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#252525' }} >Modo online: </Text> 
+        <ToggleButton onPress={async()=>{
+          setModeOffline()
+        }} />
+      </View>
+      {
+        isSaleStorage &&
+        <View style={{flexDirection: 'row', paddingHorizontal: 15, justifyContent: 'space-between', alignItems: 'center'}}>
+        <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#252525' }} >Hay ventas sin guardar</Text> 
+        </View>
+      }
       <Pressable style={{borderColor: '#d9d9d9', borderWidth: 1, padding: 8, width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginVertical: 10}} 
         onPress={()=>navigation.navigate('Product')}
       >

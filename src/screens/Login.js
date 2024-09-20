@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TextInput, View } from 'react-native'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useFormik } from 'formik'
 import Button from '../components/Button'
 import apiClient from '../utils/client'
@@ -18,8 +18,8 @@ export default function Login({navigation}) {
 
     const formik = useFormik({
         initialValues: {
-            nickname: 'sergio',
-            password: '123'
+            nickname: '',
+            password: ''
         },
         validateOnChange: false,
         onSubmit: (formValue) => {
@@ -40,7 +40,7 @@ export default function Login({navigation}) {
                 }
                 dispatch(setUser(response.data))
                 dispatch(setAlert({
-                    message: `Bienvenido ${response.data.user}`,
+                    message: `Bienvenido ${response.data.nickname}`,
                     type: 'success'
                 }))
                 await saveData(response.data)
@@ -58,6 +58,20 @@ export default function Login({navigation}) {
             }) 
         }
     })
+
+    useEffect(() => {
+        const isLogIn = async () => {
+          if (userLocalStorage.nickname !== '' && userLocalStorage.token !== '' && userLocalStorage.nickname !== undefined && userLocalStorage.token !== undefined) {
+            navigation.navigate('Home')
+            return
+          }
+          return
+        }
+        if (userLocalStorage !== undefined && userLocalStorage !== '') {
+            isLogIn()
+        }
+        
+    }, [userLocalStorage])
 
   return (
     <View style={styles.content}>

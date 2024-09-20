@@ -1,8 +1,8 @@
 import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native'
-import React, { useEffect, useState } from 'react'
+import React, { useContext, useEffect, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import { getUser } from '../redux/userSlice';
-import { clearLoading, getLoading } from '../redux/loadingSlice';
+import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
 import { io } from 'socket.io-client';
 import { useInputValue } from '../hooks/useInputValue';
 import Search from '../components/Search';
@@ -13,6 +13,9 @@ import SliderSale from '../components/SliderSale';
 import CartSale from '../components/CartSale';
 import ResumeBottomSheet from '../components/ResumeBottomSheet';
 import { setAlert } from '../redux/alertSlice';
+import useLocalStorage from '../hooks/useLocalStorage';
+import useInternetStatus from '../hooks/useInternetStatus';
+import { OfflineContext } from '../context.js/contextOffline';
 
 const renderItem = ({ item, navigation, addCart }) => {
   return(
@@ -31,7 +34,7 @@ const renderItem = ({ item, navigation, addCart }) => {
 
 export default function NewSale({navigation}) {
 
-    const user = useAppSelector(getUser);
+    const user = useAppSelector(getUser)
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
     const [data, setData] = useState([])
@@ -44,9 +47,14 @@ export default function NewSale({navigation}) {
     const [openBS, setOpenBS] = useState(false)
     const [lineaVenta, setLineaVenta] = useState([])
     const [total, setTotal] = useState(0)
+    const {data: saleStorage, saveData: setSaleStorage} = useLocalStorage([],'saleStorage')
 
     const cliente = useInputValue('','')
     const search = useInputValue('','')
+
+    const {offline, trueSaleStorage} = useContext(OfflineContext)
+
+    const {data: productLocalStorage} = useLocalStorage([],'productStorage')
 
     const getProduct = (skip, limit) => {
         apiClient.post(`/product/skip`, {skip, limit},
@@ -87,6 +95,10 @@ export default function NewSale({navigation}) {
     },[query])
 
     useEffect(()=>{
+      if(!offline){
+        console.log('buscando offline')
+        return
+      }
       if (search) {
         getProductSearch(search.value, activeCategorie._id, activeBrand._id, activeProvider._id)
       }
@@ -149,12 +161,15 @@ export default function NewSale({navigation}) {
 
   return (
     <SafeAreaView style={styles.content}  >
-        <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>setOpenFilter(true)} />
+        <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>{offline && setOpenFilter(true)}} />
+        <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: `${!offline ? '#C7253E':'#799351'}`, paddingHorizontal: 15 }} >{!offline ? 'Estas en modo sin conexion' : 'Estas en modo con conexion'}</Text>
         <FlatList
           style={{height: '83%'}}
-          data={search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ? 
+          data={
+            !offline ? productLocalStorage :
+            (search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ? 
             dataSearch : 
-            data
+            data)
           }
           renderItem={({ item }) => renderItem({ item, navigation, addCart })}
           keyExtractor={(item) => item._id}
@@ -205,7 +220,7 @@ export default function NewSale({navigation}) {
                 }))}
             />
           ]} onCloseSheet={()=>setOpenBS(false)} finishSale={
-            ()=>{
+            async()=>{
                 if (lineaVenta.length===0 || total <= 0) {
                   dispatch(setAlert({
                     message: `No se agregaron productos al carrito`,
@@ -218,6 +233,12 @@ export default function NewSale({navigation}) {
                     message: `No se ingreso ningun cliente`,
                     type: 'warning'
                   }))
+                  return
+                }
+                if(!offline){
+                  await setSaleStorage([...saleStorage, {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado'}])
+                  trueSaleStorage()
+                  navigation.navigate('Sale')
                   return
                 }
                 apiClient.post('/sale', {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado'},{

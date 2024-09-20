@@ -4,15 +4,17 @@ import { useAppDispatch, useAppSelector } from '../redux/hook';
 import { getUser } from '../redux/userSlice';
 import apiClient from '../utils/client';
 import Table from '../components/Table';
+import useLocalStorage from '../hooks/useLocalStorage';
 
 export default function DetailsSale({ route, navigation }) {
 
   const { id } = route.params;
-  const user = useAppSelector(getUser);
+  const user = useAppSelector(getUser) 
   const [details, setDetails] = useState(undefined)
   const dispatch = useAppDispatch();
 
   const getDetails = () => {
+    console.log('id', id, 'token', user.token)
     apiClient.get(`/sale/${id}`,
     {
         headers: {

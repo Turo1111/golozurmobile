@@ -7,8 +7,6 @@ export default function Loading({text = ''}) {
     const [rotateValue] = useState(new Animated.Value(0));
     const loading = useAppSelector(getLoading);
 
-    console.log('loading', loading)
-
   useEffect(() => {
     Animated.loop(
       Animated.timing(rotateValue, {

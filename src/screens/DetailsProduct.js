@@ -11,11 +11,12 @@ import * as FileSystem from 'expo-file-system';
 import { setAlert } from '../redux/alertSlice';
 import { clearLoading } from '../redux/loadingSlice';
 import Constants from 'expo-constants';
+import useLocalStorage from '../hooks/useLocalStorage';
 
 export default function DetailsProduct({ route, navigation }) {
 
   const { id } = route.params;
-  const user = useAppSelector(getUser);
+  const user = useAppSelector(getUser)
   const [details, setDetails] = useState(undefined)
   const [image, setImage] = useState(undefined)
   const [imageFile, setImageFile] = useState(undefined)

@@ -10,10 +10,11 @@ import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice'
 import { setAlert } from '../redux/alertSlice'
 import ChooseFile from '../components/ChooseFile'
 import * as FileSystem from 'expo-file-system';
+import useLocalStorage from '../hooks/useLocalStorage'
 
 export default function NewProduct({navigation}) {
 
-    const user = useAppSelector(getUser)
+  const user = useAppSelector(getUser)
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
 
