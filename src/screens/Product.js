@@ -13,6 +13,7 @@ import FilterProduct from '../components/FilterProduct';
 import useLocalStorage from '../hooks/useLocalStorage';
 import useInternetStatus from '../hooks/useInternetStatus';
 import { OfflineContext } from '../context.js/contextOffline';
+import useFilteredArray from '../hooks/useFilteredArray';
 
 const renderItem = ({ item, navigation, isConnected }) => {
   
@@ -54,6 +55,8 @@ export default function Product({navigation}) {
     const {data: productLocalStorage} = useLocalStorage([],'productStorage')
 
     const search = useInputValue('','')
+    
+    const filteredArray = useFilteredArray(productLocalStorage, search.value);
 
     const {offline} = useContext(OfflineContext)
 
@@ -108,7 +111,7 @@ export default function Product({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('https://apigolozur.onrender.com')
       socket.on(`product`, (socket) => {
         refreshProducts()
         setData((prevData)=>{
@@ -185,7 +188,7 @@ export default function Product({navigation}) {
           <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#C7253E', paddingHorizontal: 15 }} >Estas en modo sin conexion</Text>
           <FlatList
             style={{height: '83%'}}
-            data={productLocalStorage}
+            data={filteredArray}
             renderItem={({ item }) => renderItem({ item, navigation, isConnected })}
             keyExtractor={(item) => item._id}
           />

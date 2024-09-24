@@ -16,6 +16,7 @@ import { setAlert } from '../redux/alertSlice';
 import useLocalStorage from '../hooks/useLocalStorage';
 import useInternetStatus from '../hooks/useInternetStatus';
 import { OfflineContext } from '../context.js/contextOffline';
+import useFilteredArray from '../hooks/useFilteredArray';
 
 const renderItem = ({ item, navigation, addCart }) => {
   return(
@@ -55,6 +56,8 @@ export default function NewSale({navigation}) {
     const {offline, trueSaleStorage} = useContext(OfflineContext)
 
     const {data: productLocalStorage} = useLocalStorage([],'productStorage')
+
+    const filteredArray = useFilteredArray(productLocalStorage, search.value);
 
     const getProduct = (skip, limit) => {
         apiClient.post(`/product/skip`, {skip, limit},
@@ -105,7 +108,7 @@ export default function NewSale({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('https://apigolozur.onrender.com')
       socket.on(`/product`, (socket) => {
         console.log("escucho socket",socket);
         refreshProducts()
@@ -149,7 +152,7 @@ export default function NewSale({navigation}) {
   }
 
   useEffect(()=>{
-    const socket = io('http://10.0.2.2:3002')
+    const socket = io('https://apigolozur.onrender.com')
     socket.on(`/sale`, (socket) => {
         console.log('escucho', socket)
       /* getSale() */
@@ -166,7 +169,7 @@ export default function NewSale({navigation}) {
         <FlatList
           style={{height: '83%'}}
           data={
-            !offline ? productLocalStorage :
+            !offline ? filteredArray :
             (search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ? 
             dataSearch : 
             data)
