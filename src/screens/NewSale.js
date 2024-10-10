@@ -17,10 +17,11 @@ import useLocalStorage from '../hooks/useLocalStorage';
 import useInternetStatus from '../hooks/useInternetStatus';
 import { OfflineContext } from '../context.js/contextOffline';
 import useFilteredArray from '../hooks/useFilteredArray';
+import AddProduct from '../components/AddProduct';
 
-const renderItem = ({ item, navigation, addCart }) => {
+const renderItem = ({ item, navigation, addSelectProduct }) => {
   return(
-    <Pressable style={styles.item} onPress={()=>addCart(item)}>
+    <Pressable style={styles.item} onPress={()=>addSelectProduct(item)}>
         <View>
             <Text style={styles.titleProduct}>{item.descripcion}</Text>
             <Text style={{fontSize: 14, color: '#7F8487'}}>{item.NameCategoria}</Text>
@@ -35,7 +36,8 @@ const renderItem = ({ item, navigation, addCart }) => {
 
 export default function NewSale({navigation}) {
 
-    const user = useAppSelector(getUser)
+  const user = useAppSelector(getUser) 
+  const {data: userStorage} = useLocalStorage([],'user')
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
     const [data, setData] = useState([])
@@ -49,9 +51,12 @@ export default function NewSale({navigation}) {
     const [lineaVenta, setLineaVenta] = useState([])
     const [total, setTotal] = useState(0)
     const {data: saleStorage, saveData: setSaleStorage} = useLocalStorage([],'saleStorage')
+    const [selectProduct, setSelectProduct] = useState(undefined)
+    const [openAddProduct, setOpenAddProduct] = useState(false)
 
     const cliente = useInputValue('','')
     const search = useInputValue('','')
+    const porcentaje = useInputValue('0','number')
 
     const {offline, trueSaleStorage} = useContext(OfflineContext)
 
@@ -63,7 +68,7 @@ export default function NewSale({navigation}) {
         apiClient.post(`/product/skip`, {skip, limit},
         {
             headers: {
-              Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+              Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
             },
         })
         .then(response=>{
@@ -108,7 +113,7 @@ export default function NewSale({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('https://apigolozur.onrender.com')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`/product`, (socket) => {
         console.log("escucho socket",socket);
         refreshProducts()
@@ -133,26 +138,37 @@ export default function NewSale({navigation}) {
 
   useEffect(()=>{
     const sumWithInitial = lineaVenta.reduce(
-        (accumulator, currentValue) => parseFloat(accumulator) + parseFloat(currentValue.total),
+        (accumulator, currentValue) => {
+          let suma = parseFloat(accumulator) + parseFloat(currentValue.total)
+          if (parseFloat(porcentaje.value) > 0) {
+            return (suma + (suma * (parseFloat(porcentaje.value)/100)))
+          }
+          return suma
+        },
         0,
     );
     setTotal(prevData=>parseFloat(parseFloat(sumWithInitial).toFixed(2)))
-  },[lineaVenta])
+  },[lineaVenta, porcentaje])
 
-  const addCart = (item) => {
+  const addCart = (item, cantidad, totalLV) => {
     setLineaVenta((prevData)=>{
         const exist = prevData.find((elem)=>elem._id===item._id)
         if (exist) {
             return prevData.map((elem) =>
-                elem._id === item._id ? {...item, cantidad: 1, total: item.precioUnitario} : elem
+                elem._id === item._id ? {...item, cantidad: cantidad, total: totalLV} : elem
             )
         }
-        return [...prevData, {...item, cantidad: 1, total: item.precioUnitario, idProducto: item._id}]
+        return [...prevData, {...item, cantidad: cantidad, total: totalLV, idProducto: item._id}]
     })
   }
 
+  const addSelectProduct = (item) => {
+    setSelectProduct(prevData=>item)
+    setOpenAddProduct(true)
+  }
+
   useEffect(()=>{
-    const socket = io('https://apigolozur.onrender.com')
+    const socket = io('http://10.0.2.2:3002')
     socket.on(`/sale`, (socket) => {
         console.log('escucho', socket)
       /* getSale() */
@@ -174,7 +190,7 @@ export default function NewSale({navigation}) {
             dataSearch : 
             data)
           }
-          renderItem={({ item }) => renderItem({ item, navigation, addCart })}
+          renderItem={({ item }) => renderItem({ item, navigation, addSelectProduct })}
           keyExtractor={(item) => item._id}
           onEndReached={()=>{
             console.log('estoy en el final')
@@ -192,10 +208,14 @@ export default function NewSale({navigation}) {
           selectBrand={(item)=>setActiveBrand(item)}
           selectProvider={(item)=>setActiveProvider(item)}
         />
+        {
+          selectProduct &&
+          <AddProduct open={openAddProduct} onClose={()=>setOpenAddProduct(false)} product={selectProduct} addCart={(item, cantidad, totalLV)=>addCart(item,cantidad, totalLV)} />
+        }
         <ResumeBottomSheet onPress={() => setOpenBS(true)} totalCart={total} longCart={lineaVenta.length}  />
         <MyBottomSheet open={openBS} onClose={()=>setOpenBS(false)} fullScreen={true} >
           <SliderSale itemSlide={[
-            <CartSale cliente={cliente} lineaVenta={lineaVenta} total={total} 
+            <CartSale cliente={cliente} lineaVenta={lineaVenta} total={total} porcentaje={porcentaje}
                 onClick={(item)=>setLineaVenta((prevData)=>prevData.filter((elem)=>elem._id!==item._id))}
                 upQTY={(id)=>setLineaVenta((prevData)=>prevData.map((elem)=>{
                   return elem._id===id ? {...elem, cantidad: elem.cantidad+1, total: (elem.precioUnitario*(elem.cantidad+1)).toFixed(2)} : elem
@@ -224,6 +244,7 @@ export default function NewSale({navigation}) {
             />
           ]} onCloseSheet={()=>setOpenBS(false)} finishSale={
             async()=>{
+              console.log(user, userStorage)
                 if (lineaVenta.length===0 || total <= 0) {
                   dispatch(setAlert({
                     message: `No se agregaron productos al carrito`,
@@ -231,7 +252,8 @@ export default function NewSale({navigation}) {
                   }))
                   return
                 }
-                if (cliente==='') {
+                if (cliente.value==='') {
+                  console.log('no se ingreso ningun cliente')
                   dispatch(setAlert({
                     message: `No se ingreso ningun cliente`,
                     type: 'warning'
@@ -239,20 +261,20 @@ export default function NewSale({navigation}) {
                   return
                 }
                 if(!offline){
-                  await setSaleStorage([...saleStorage, {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado'}])
+                  await setSaleStorage([...saleStorage, {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value}])
                   trueSaleStorage()
                   navigation.navigate('Sale')
                   return
                 }
-                apiClient.post('/sale', {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado'},{
+                apiClient.post('/sale', {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value},{
                   headers: {
-                    Authorization: `Bearer ${user.token}` 
+                    Authorization: `Bearer ${user.token || userStorage.token}` 
                   }
                 })
                 .then((r)=>{
                   navigation.navigate('Sale')
                 })
-                .catch((e)=>console.log(e))
+                .catch((e)=>console.log('error post sale',e))
               }
           } />
         </MyBottomSheet>

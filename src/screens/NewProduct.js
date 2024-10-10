@@ -14,7 +14,8 @@ import useLocalStorage from '../hooks/useLocalStorage'
 
 export default function NewProduct({navigation}) {
 
-  const user = useAppSelector(getUser)
+  const user = useAppSelector(getUser) 
+    const {data: userStorage} = useLocalStorage([],'user')
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
 
@@ -35,7 +36,6 @@ export default function NewProduct({navigation}) {
         },
         validateOnChange: false,
         onSubmit: async (formValue) => {
-          console.log(formValue)
            if (formValue.descripcion === '' || formValue.stock <= 0 || formValue.precioUnitario <= 0){
               console.log('entre aqui');
               dispatch(setAlert({
@@ -57,7 +57,7 @@ export default function NewProduct({navigation}) {
           apiClient.post(`/product`, formValue,
             {
               headers: {
-                Authorization: `Bearer ${user.token}`
+                Authorization: `Bearer ${user.token || userStorage.token}`
               }
             })
             .then((r)=>{
@@ -143,13 +143,13 @@ export default function NewProduct({navigation}) {
                     value={formik.values.codigoBarra}
                     onChangeText={(text)=> formik.setFieldValue('codigoBarra', text)}
                 /> */}
-                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Sabor</Text>
+                {/* <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Sabor</Text>
                 <TextInput placeholder={'Sabor'} style={styles.input}
                     value={formik.values.sabor}
                     onChangeText={(text)=> formik.setFieldValue('sabor', text)}
-                />
-                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Bulto</Text>
-               {/*  <TextInput placeholder={'Bulto'} style={styles.input}
+                /> */}
+                {/*  <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Bulto</Text>
+               <TextInput placeholder={'Bulto'} style={styles.input}
                     value={formik.values.bulto}
                     onChangeText={(text)=> {
                       if (!isNaN(text)) { 

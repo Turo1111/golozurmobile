@@ -16,7 +16,8 @@ import useLocalStorage from '../hooks/useLocalStorage';
 export default function DetailsProduct({ route, navigation }) {
 
   const { id } = route.params;
-  const user = useAppSelector(getUser)
+  const user = useAppSelector(getUser) 
+  const {data: userStorage} = useLocalStorage([],'user')
   const [details, setDetails] = useState(undefined)
   const [image, setImage] = useState(undefined)
   const [imageFile, setImageFile] = useState(undefined)
@@ -39,7 +40,7 @@ export default function DetailsProduct({ route, navigation }) {
   const uploadImage = async (uri) => {
     try {
       let filename = ''
-      await FileSystem.uploadAsync('https://apigolozur.onrender.com/product/uploadImage', uri, {
+      await FileSystem.uploadAsync('http://10.0.2.2:3002/product/uploadImage', uri, {
         fieldName: 'myfile',
         httpMethod: 'POST',
         uploadType: FileSystem.FileSystemUploadType.MULTIPART,
@@ -54,7 +55,7 @@ export default function DetailsProduct({ route, navigation }) {
       await apiClient.patch(`/product/${id}`, {path: filename},
             {
               headers: {
-                Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+                Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
               }
             })
             .then(async (r)=>{
@@ -82,15 +83,14 @@ export default function DetailsProduct({ route, navigation }) {
     apiClient.get(`/product/${id}`,
     {
         headers: {
-          Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+          Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
         },
     })
     .then(response=>{
-      console.log(response.data[0])
       /* setImage(`http://localhost:3002/storage/${response.data[0].path}`) */
       setDetails(response.data[0])
     })
-    .catch(e=>console.log("error", e))
+    .catch(e=>console.log("error getdetail", e))
   }
 
   const getImage = (path) => {
@@ -98,19 +98,23 @@ export default function DetailsProduct({ route, navigation }) {
     apiClient.get(`/product/image/${path}`,
     {
         headers: {
-          Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+          Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
         },
     })
     .then(response=>{
       console.log("imagen?",response.data)
       /* setImageFile() */
     })
-    .catch(e=>console.log("error", e))
+    .catch(e=>console.log("error get image", e))
   }
 
   useEffect(() => {
-    getDetails()
-  }, [])
+    console.log("antes",user, userStorage, id)
+    if (user.token !== '' || userStorage.length !== 0) {
+      console.log("despues", user, userStorage)
+      getDetails()
+    }
+  }, [user, userStorage])
 
   useEffect(() => {
     const uri = Constants?.expoConfig?.hostUri
@@ -124,8 +128,8 @@ export default function DetailsProduct({ route, navigation }) {
   }, [details])
 
   useEffect(()=>{
-    const socket = io('https://apigolozur.onrender.com')
-    socket.on(`/product`, (socket) => {
+    const socket = io('http://10.0.2.2:3002')
+    socket.on(`product`, (socket) => {
       console.log("socket", socket)
       setDetails((prevData)=>{
         if (socket.data._id === id) {
@@ -138,15 +142,6 @@ export default function DetailsProduct({ route, navigation }) {
       socket.disconnect();
     }; 
   },[id])
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      getDetails()
-    });
-
-    return unsubscribe
-  }, [navigation]);
-  
 
   return (
     <View style={{padding: 15}}>

@@ -23,7 +23,7 @@ export default function SliderSale({itemSlide=[1,2,3], onCloseSheet, finishSale}
         </View>
         <View >
             <View style={{flexDirection: 'row', justifyContent: 'space-around'}}>
-                <Button text={'Volver'} onPress={()=>downSlide()} backgroundColor={indexActive===0 && '#d9d9d9'}  />
+                <Button text={'Volver'} onPress={onCloseSheet} backgroundColor={indexActive===0 && '#d9d9d9'}  />
                 {
                     indexActive < (itemSlide.length-1) ? <Button text={'Siguiente'} onPress={()=>upSlide()}/> :
                     <Button text={'Terminar'} onPress={finishSale}/>

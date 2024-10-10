@@ -13,7 +13,8 @@ export const OfflineProvider = ({ children }) => {
   const {data: productStorage, saveData: setProductStorage} = useLocalStorage([],'productStorage')
   const dispatch = useAppDispatch();
   const {data: saleStorage, clearData: clearDataSaleStorage} = useLocalStorage([],'saleStorage')
-  const {data: user} = useLocalStorage([],'user')
+  const user = useAppSelector(getUser) 
+  const {data: userStorage} = useLocalStorage([],'user')
   const [isSaleStorage, setIsSaleStorage] = useState(false)
 
   const setModeOffline = async () => {
@@ -29,7 +30,7 @@ export const OfflineProvider = ({ children }) => {
         }))
         apiClient.post('/sale/multiple', parsedSaleStorage,{
           headers: {
-            Authorization: `Bearer ${user.token}` 
+            Authorization: `Bearer ${user.token || userStorage.token}` 
           }
         })
         .then((r)=>{

@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     color: '#F9F5F6',
     textAlign: 'center',
     marginTop: 50,
-    zIndex: 100,
+    zIndex: 105,
     left: '15%'
   },
 });

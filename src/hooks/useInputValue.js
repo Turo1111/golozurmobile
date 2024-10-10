@@ -12,10 +12,10 @@ export const useInputValue = (initialValue, onlyType) => {
   const onChangeText = e => {
 
     if (onlyType === 'number') {
-      !isNaN(e.target.value)  && setvalue(e.target.value)
+      setvalue(e.replace(/[^0-9]/g, ''))
     }
     if (onlyType === 'string'){
-      esLetra(e.target.value) && setvalue(e.target.value)
+      esLetra(e) && setvalue(e)
     }
     if(onlyType === ''){
       setvalue(e)

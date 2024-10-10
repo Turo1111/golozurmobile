@@ -11,7 +11,8 @@ import useLocalStorage from '../hooks/useLocalStorage';
 export default function InputSelect({value, onChange, name, path}) {
 
     const [open, setOpen] = useState(false)
-    const user = useAppSelector(getUser)
+    const user = useAppSelector(getUser) 
+    const {data: userStorage} = useLocalStorage([],'user')
     const [data, setData] = useState([])
     const [inputValue, setInputValue] = useState(value ? value : '')
     const [isActive, setIsActive] = useState(false)
@@ -25,7 +26,7 @@ export default function InputSelect({value, onChange, name, path}) {
         apiClient.get(`${path}`,
         {
             headers: {
-              Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+              Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
             },
         })
         .then(response=>{

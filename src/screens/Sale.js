@@ -11,10 +11,19 @@ import { io } from 'socket.io-client';
 import useInternetStatus from '../hooks/useInternetStatus';
 import { OfflineContext } from '../context.js/contextOffline';
 import useLocalStorage from '../hooks/useLocalStorage';
+import FeatherIcons from 'react-native-vector-icons/Feather'
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { Buffer } from 'buffer';
+
+const arrayBufferToBase64 = (buffer) => {
+  return Buffer.from(buffer).toString('base64');
+};
 
 export default function Sale({navigation}) {
 
-    const user = useAppSelector(getUser)
+    const user = useAppSelector(getUser) 
+    const {data: userStorage} = useLocalStorage([],'user')
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
     const [data, setData] = useState([])
@@ -25,12 +34,14 @@ export default function Sale({navigation}) {
     const {offline} = useContext(OfflineContext)
 
     const getSale = async (skip, limit) => {
-      console.log(skip, limit)
+      dispatch(setLoading({
+        message: `Actualizando ventas`
+      }))
       try {
         const response = await apiClient.post(`/sale/skip`, { skip, limit },
           {
               headers: {
-                  Authorization: `Bearer ${user.token}`
+                  Authorization: `Bearer ${user.token || userStorage.token}`
               },
           });
           setData((prevData)=>{
@@ -54,6 +65,9 @@ export default function Sale({navigation}) {
     }
 
     const getSaleSearch = async (input) => {
+      dispatch(setLoading({
+        message: `Actualizando ventas`
+      }))
       try {
           const response = await apiClient.post(`/sale/search`, {input});
           setDataSearch(response.data);
@@ -77,17 +91,54 @@ export default function Sale({navigation}) {
     },[query])
 
     useEffect(()=>{
-      const socket = io('https://apigolozur.onrender.com')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`sale`, (socket) => {
-          console.log('escucho', socket)
+        console.log('escucho', socket)
         setData((prevData)=>{
-          return [...prevData, socket.data]
+          return [ socket.data, ...prevData]
         })
       })
       return () => {
         socket.disconnect();
       }; 
     },[data])
+
+    const downloadAndSharePDF = async (item) => {
+      const fileName = `venta-${item.cliente}.pdf`;
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+      dispatch(setLoading({
+        message: `Actualizando ventas`
+      }))
+      try {
+        // Descargar el archivo como ArrayBuffer
+        const response = await apiClient.get(`/sale/print/${item._id}`, { responseType: 'arraybuffer' });
+        const pdfArrayBuffer = response.data;
+  
+        // Convertir el ArrayBuffer a Base64 usando Buffer
+        const pdfBase64 = arrayBufferToBase64(pdfArrayBuffer);
+  
+        // Guardar el archivo en el sistema de archivos de Expo
+        await FileSystem.writeAsStringAsync(fileUri, pdfBase64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+  
+        // Compartir el archivo utilizando expo-sharing
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Compartir PDF',
+            UTI: 'com.adobe.pdf',
+          });
+        } else {
+          alert('La función de compartir no está disponible en este dispositivo');
+        }
+        dispatch(clearLoading())
+      } catch (error) {
+        console.error('Error descargando o compartiendo el PDF:', error);
+        dispatch(clearLoading())
+      }
+    };
 
   return (
     <View>
@@ -118,6 +169,11 @@ export default function Sale({navigation}) {
                       <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'end', flex: 1}}>
                           <Text style={{fontSize: 14, color: '#252525',fontWeight: 500}}>{item.createdAt.split("T")[0]}</Text>
                       </View>
+                      <Pressable style={{borderColor: '#d9d9d9', borderWidth: 1, padding: 8, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginVertical: 10}} 
+                        onPress={()=>downloadAndSharePDF(item)}
+                      >
+                        <FeatherIcons name='printer' size={20} color='#252525' style={{textAlign: 'center'}} />
+                      </Pressable>
                   </Pressable>
               )
             }}

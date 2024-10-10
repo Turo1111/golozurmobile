@@ -14,6 +14,7 @@ import useLocalStorage from '../hooks/useLocalStorage';
 import useInternetStatus from '../hooks/useInternetStatus';
 import { OfflineContext } from '../context.js/contextOffline';
 import useFilteredArray from '../hooks/useFilteredArray';
+import PrintProduct from '../components/PrintProduct';
 
 const renderItem = ({ item, navigation, isConnected }) => {
   
@@ -40,7 +41,8 @@ const renderItem = ({ item, navigation, isConnected }) => {
 }
 export default function Product({navigation}) {
 
-    const user = useAppSelector(getUser)
+    const user = useAppSelector(getUser) 
+    const {data: userStorage} = useLocalStorage([],'user')
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
     const [data, setData] = useState([])
@@ -53,6 +55,10 @@ export default function Product({navigation}) {
     const [openFilter, setOpenFilter] = useState(false)
     const isConnected = useInternetStatus();
     const {data: productLocalStorage} = useLocalStorage([],'productStorage')
+    const fechaHoy = new Date()
+    const [openPrint, setOpenPrint] = useState(false)
+
+    console.log(fechaHoy)
 
     const search = useInputValue('','')
     
@@ -61,10 +67,13 @@ export default function Product({navigation}) {
     const {offline} = useContext(OfflineContext)
 
     const getProduct = (skip, limit) => {
+      dispatch(setLoading({
+        message: `Actualizando productos`
+      }))
         apiClient.post(`/product/skip`, {skip, limit},
         {
             headers: {
-              Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+              Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
             },
         })
         .then(response=>{
@@ -83,21 +92,22 @@ export default function Product({navigation}) {
             })
             dispatch(clearLoading())
         })
-        .catch(e=>console.log("error", e))
+        .catch(e=>{console.log("error", e);dispatch(clearLoading())})
     }
 
     const getProductSearch = (input, categorie, brand, provider) => {
       apiClient.post(`/product/search`, {input, categoria: categorie, marca: brand, proveedor: provider},
         {
           headers: {
-            Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+            Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
           },
       }
       )
       .then(response=>{
           setDataSearch(response.data)
+          ;dispatch(clearLoading())
       })
-      .catch(e=>console.log("error", e))
+      .catch(e=>{console.log("error", e);dispatch(clearLoading())})
     }
 
     useEffect(()=>{
@@ -111,7 +121,7 @@ export default function Product({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('https://apigolozur.onrender.com')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`product`, (socket) => {
         refreshProducts()
         setData((prevData)=>{
@@ -142,6 +152,7 @@ export default function Product({navigation}) {
     return unsubscribe
   }, [navigation]);
 
+  
   return (
     <View>
       {
@@ -149,8 +160,9 @@ export default function Product({navigation}) {
         <View>
           <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>setOpenFilter(true)} />
           <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15}} >
-            <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={()=>{navigation.navigate('NewProduct')}} />
-            <Button text={'Actualizar'} fontSize={14} width={'45%'} onPress={()=>setOpenUpdate(true)} />
+            <Button text={'Nuevo'} fontSize={14} width={'25%'} onPress={()=>{navigation.navigate('NewProduct')}}  />
+            <Button text={'Actualizar'} fontSize={14} width={'30%'} onPress={()=>setOpenUpdate(true)} />
+            <Button text={'Imprimir'} fontSize={14} width={'25%'} onPress={()=>setOpenPrint(true)} />
           </View>
           <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
           <FlatList
@@ -162,7 +174,6 @@ export default function Product({navigation}) {
             renderItem={({ item }) => renderItem({ item, navigation, isConnected })}
             keyExtractor={(item) => item._id}
             onEndReached={()=>{
-              console.log('estoy en el final')
               if(!loading.open){
                 if(search){
                   if(search.value === ''){
@@ -180,6 +191,9 @@ export default function Product({navigation}) {
             selectCategorie={(item)=>setActiveCategorie(item)}
             selectBrand={(item)=>setActiveBrand(item)}
             selectProvider={(item)=>setActiveProvider(item)}
+          />
+          <PrintProduct  
+            open={openPrint} onClose={()=>setOpenPrint(false)}
           />
         </View>
         :

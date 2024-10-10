@@ -13,7 +13,8 @@ import useLocalStorage from '../hooks/useLocalStorage';
 
 export default function UpdatePrice({open, onClose, updateQuery}) {
 
-  const user = useAppSelector(getUser)
+    const user = useAppSelector(getUser) 
+    const {data: userStorage} = useLocalStorage([],'user')
     const dispatch = useDispatch()
 
     const formik = useFormik({
@@ -35,7 +36,7 @@ export default function UpdatePrice({open, onClose, updateQuery}) {
               apiClient.patch(`/product`, formValue,
               {
                 headers: {
-                  Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+                  Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
                 }
               })
               .then(async(response)=>{

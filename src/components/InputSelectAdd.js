@@ -12,7 +12,8 @@ import useLocalStorage from '../hooks/useLocalStorage';
 export default function InputSelectAdd({value, onChange, name, path}) {
 
     const [open, setOpen] = useState(false)
-    const user = useAppSelector(getUser)
+    const user = useAppSelector(getUser) 
+    const {data: userStorage} = useLocalStorage([],'user')
     const [data, setData] = useState([])
     const [inputValue, setInputValue] = useState(value ? value : '')
     const [isActive, setIsActive] = useState(false)
@@ -26,7 +27,7 @@ export default function InputSelectAdd({value, onChange, name, path}) {
         apiClient.get(`${path}`,
         {
             headers: {
-              Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+              Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
             },
         })
         .then(response=>{
@@ -70,7 +71,7 @@ export default function InputSelectAdd({value, onChange, name, path}) {
         apiClient.post(`/${path}`, {descripcion: inputValue},
         {
           headers: {
-            Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+            Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
           }
         })
         .then((r)=>{
@@ -94,7 +95,7 @@ export default function InputSelectAdd({value, onChange, name, path}) {
         apiClient.patch(`/${path}/${value}`, {_id: value, descripcion: inputValue},
         {
           headers: {
-            Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+            Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
           }
         })
         .then((r)=>{
@@ -130,7 +131,7 @@ export default function InputSelectAdd({value, onChange, name, path}) {
     },[value])
 
     useEffect(()=>{
-        const socket = io('https://apigolozur.onrender.com')
+        const socket = io('http://10.0.2.2:3002')
         socket.on(`${path}`, (socket) => {
           setData((prevData)=>{
             const exist = prevData.find(elem => elem._id === socket.data._id )

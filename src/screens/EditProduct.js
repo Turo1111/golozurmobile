@@ -14,7 +14,8 @@ import useLocalStorage from '../hooks/useLocalStorage'
 export default function EditProduct({ route, navigation}) {
 
     const { id, details } = route.params;
-    const user = useAppSelector(getUser)
+    const user = useAppSelector(getUser) 
+    const {data: userStorage} = useLocalStorage([],'user')
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
     console.log(details)
@@ -43,7 +44,7 @@ export default function EditProduct({ route, navigation}) {
            apiClient.patch(`/product/${id}`, formValue,
             {
               headers: {
-                Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+                Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
               }
             })
             .then(async (r)=>{
@@ -52,7 +53,7 @@ export default function EditProduct({ route, navigation}) {
                 type: 'success'
               }))
               dispatch(clearLoading())
-              navigation.goBack()
+              navigation.navigate('Product')
             })
             .catch(e=>{
                 console.log('error', e);
@@ -65,7 +66,7 @@ export default function EditProduct({ route, navigation}) {
     })
 
     useEffect(()=>{
-      const socket = io('https://apigolozur.onrender.com')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`/product`, (socket) => {
         console.log("socket", socket)
         setDetails((prevData)=>{

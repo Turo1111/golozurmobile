@@ -10,15 +10,16 @@ export default function DetailsSale({ route, navigation }) {
 
   const { id } = route.params;
   const user = useAppSelector(getUser) 
+  const {data: userStorage} = useLocalStorage([],'user')
   const [details, setDetails] = useState(undefined)
   const dispatch = useAppDispatch();
 
   const getDetails = () => {
-    console.log('id', id, 'token', user.token)
+    console.log('id', id, 'token', user.token, userStorage)
     apiClient.get(`/sale/${id}`,
     {
         headers: {
-          Authorization: `Bearer ${user.token}` // Agregar el token en el encabezado como "Bearer {token}"
+          Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
         },
     })
     .then(response=>{
@@ -29,8 +30,11 @@ export default function DetailsSale({ route, navigation }) {
   }
 
   useEffect(() => {
+    if (user.token !== '' || userStorage.length !== 0) {
+      
+    }
     getDetails()
-  }, [])
+  }, [user, userStorage])
 
   return (
     <View style={{padding: 5}}>
@@ -39,6 +43,7 @@ export default function DetailsSale({ route, navigation }) {
       <>
         <Text style={{fontSize: 18, color: '#252525', fontWeight: '600', marginLeft: 5, marginVertical: 5}}>Cliente: {details.r.cliente}</Text>
         <Text style={{fontSize: 18, color: '#252525', fontWeight: '600', marginLeft: 5, marginVertical: 5}}>Fecha: {details.r.createdAt.split("T")[0]}</Text>
+        <Text style={{fontSize: 18, color: '#252525', fontWeight: '600', marginLeft: 5, marginVertical: 5}}>Porcentaje: {`${details.r.porcentaje} %` || 'Sin porcentaje'}</Text>
         <Text style={{fontSize: 18, color: '#252525', fontWeight: '600', marginLeft: 5, marginVertical: 15}}>Productos</Text>
         <Table
           data={details.itemsSale}
