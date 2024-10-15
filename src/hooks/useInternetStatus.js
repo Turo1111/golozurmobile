@@ -5,7 +5,7 @@ const useInternetStatus = () => {
   const [isConnected, setIsConnected] = useState(true);
 
   useEffect(() => {
-    const socket = io('http://10.0.2.2:3002', { transports: ['websocket'] });
+    const socket = io('https://apigolozur.onrender.com', { transports: ['websocket'] });
 
     socket.on('connect', () => {
       setIsConnected(true);

@@ -121,7 +121,7 @@ export default function Product({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('https://apigolozur.onrender.com')
       socket.on(`product`, (socket) => {
         refreshProducts()
         setData((prevData)=>{

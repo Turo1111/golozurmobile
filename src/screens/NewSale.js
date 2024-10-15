@@ -113,7 +113,7 @@ export default function NewSale({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('https://apigolozur.onrender.com')
       socket.on(`/product`, (socket) => {
         console.log("escucho socket",socket);
         refreshProducts()
@@ -168,7 +168,7 @@ export default function NewSale({navigation}) {
   }
 
   useEffect(()=>{
-    const socket = io('http://10.0.2.2:3002')
+    const socket = io('https://apigolozur.onrender.com')
     socket.on(`/sale`, (socket) => {
         console.log('escucho', socket)
       /* getSale() */
