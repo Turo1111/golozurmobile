@@ -8,7 +8,7 @@ import { useAppSelector } from '../redux/hook';
 import { getUser } from '../redux/userSlice';
 import apiClient from '../utils/client';
 import { useDispatch } from 'react-redux';
-import { setAlert } from '../redux/alertSlice';
+import { clearLoading, setLoading } from '../redux/loadingSlice'
 
 export default function FilterProduct({open, onClose, activeBrand, activeCategorie, activeProvider, selectCategorie, selectBrand, selectProvider}) {
 
@@ -19,13 +19,16 @@ export default function FilterProduct({open, onClose, activeBrand, activeCategor
     const [provider, setProvider] = useState([])
 
     const getCategorie = () => {
+      dispatch(setLoading({
+        message: `Cargando datos`
+      }))
       apiClient.get(`/categorie`)
       .then(function(response){
         console.log(response.data)
-        setCategorie([ {_id: 1 , descripcion: 'Todas'}, ...response.data])
+        setCategorie([ {_id: 1 , descripcion: 'Todas'}, ...response.data]);dispatch(clearLoading())
       })
       .catch(function(error){
-          console.log("get",error);
+          console.log("get",error);;dispatch(clearLoading())
       })
     }
 

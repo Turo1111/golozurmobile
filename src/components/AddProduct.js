@@ -6,11 +6,17 @@ import Button from './Button'
 export default function AddProduct({open, onClose, product, addCart}) {
 
     const [cantidad, setCantidad] = useState(1)
-    const [total, setTotal] = useState(product.precioUnitario || 0)
+    const [total, setTotal] = useState(0)
 
     useEffect(()=>{
         setTotal(prevData=>parseFloat(cantidad)*parseFloat(product.precioUnitario))
     },[cantidad])
+
+    useEffect(()=>{
+        if (product !== undefined && total !== parseFloat(cantidad)*parseFloat(product.precioUnitario)) {
+            setTotal(product.precioUnitario)
+        }   
+    },[product])
 
   return (
     <ModalContainer
@@ -22,7 +28,7 @@ export default function AddProduct({open, onClose, product, addCart}) {
     >
         <Text style={{textAlign: 'center', fontSize: 18}} >{product?.descripcion || 'No definido'}</Text>
         <View style={{flexDirection: 'row', justifyContent: 'center'}}>
-            <View style={{backgroundColor: '#FFAD60', paddingHorizontal: 15, borderRadius: 15, marginVertical: 15, maxWidth: 320}}>
+            <View style={{backgroundColor: '#fff', paddingHorizontal: 15, borderRadius: 15, marginVertical: 15, maxWidth: 320}}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}} >
                     <Pressable>
                         <Text style={{fontSize: 18, borderWidth: 1, borderColor: '#d9d9d9', paddingHorizontal: 15, 

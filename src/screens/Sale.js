@@ -28,6 +28,7 @@ export default function Sale({navigation}) {
     const dispatch = useAppDispatch();
     const [data, setData] = useState([])
     const search = useInputValue('','')
+    const {data: saleStorage, clearData: clearDataSaleStorage} = useLocalStorage([],'saleStorage')
 
     const [query, setQuery] = useState({skip: 0, limit: 25})
 
@@ -91,7 +92,7 @@ export default function Sale({navigation}) {
     },[query])
 
     useEffect(()=>{
-      const socket = io('https://apigolozur.onrender.com')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`sale`, (socket) => {
         console.log('escucho', socket)
         setData((prevData)=>{
@@ -139,6 +140,8 @@ export default function Sale({navigation}) {
         dispatch(clearLoading())
       }
     };
+
+    useEffect(()=>{console.log("saleStorage",saleStorage)},[saleStorage])
 
   return (
     <View>
@@ -198,6 +201,39 @@ export default function Sale({navigation}) {
             <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={()=>{navigation.navigate('NewSale')}} />
           </View>
           <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#C7253E', paddingHorizontal: 15 }} >Estas en modo sin conexion</Text>
+          <FlatList 
+            style={{height: '83%'}}
+            data={saleStorage}
+            renderItem={({ item }) =>{
+              return (
+                  <Pressable style={styles.item} onPress={()=>{
+                      
+                  }}>
+                      <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', flex: 1}}>
+                          <Text style={{fontSize: 18, color: '#252525'}}>{item.cliente}</Text>
+                          <Text style={{fontSize: 18, fontWeight: 600, color: '#FA9B50'}}>$ {item.total}</Text>
+                      </View>
+                      <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'end', flex: 1}}>
+                          <Text style={{fontSize: 14, color: '#252525',fontWeight: 500}}>{item.itemsSale.length} productos</Text>
+                      </View>
+                  </Pressable>
+              )
+            }}
+            keyExtractor={(item) => item._id}
+            ListEmptyComponent={<Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', paddingHorizontal: 15, textAlign: 'center', marginTop: '15%' }} >SIN VENTAS EN MODO OFFLINE</Text>}
+            onEndReached={()=>{
+              if(!loading.open){
+                if(search){
+                  if(search.value === ''){
+                    dispatch(setLoading({
+                        message: `Cargando nuevas ventas`
+                    }))
+                    setQuery({skip: query.skip+15, limit: query.limit})
+                  }
+                }
+              }
+            }}
+          />
         </View>
       }
     </View>

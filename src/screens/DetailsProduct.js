@@ -9,9 +9,9 @@ import { io } from 'socket.io-client';
 import { MediaTypeOptions, launchImageLibraryAsync } from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { setAlert } from '../redux/alertSlice';
-import { clearLoading } from '../redux/loadingSlice';
 import Constants from 'expo-constants';
 import useLocalStorage from '../hooks/useLocalStorage';
+import { clearLoading, setLoading } from '../redux/loadingSlice'
 
 export default function DetailsProduct({ route, navigation }) {
 
@@ -40,7 +40,7 @@ export default function DetailsProduct({ route, navigation }) {
   const uploadImage = async (uri) => {
     try {
       let filename = ''
-      await FileSystem.uploadAsync('https://apigolozur.onrender.com/product/uploadImage', uri, {
+      await FileSystem.uploadAsync('http://10.0.2.2:3002/product/uploadImage', uri, {
         fieldName: 'myfile',
         httpMethod: 'POST',
         uploadType: FileSystem.FileSystemUploadType.MULTIPART,
@@ -80,6 +80,9 @@ export default function DetailsProduct({ route, navigation }) {
   };
 
   const getDetails = () => {
+    dispatch(setLoading({
+      message: `Cargando datos`
+    }))
     apiClient.get(`/product/${id}`,
     {
         headers: {
@@ -89,8 +92,9 @@ export default function DetailsProduct({ route, navigation }) {
     .then(response=>{
       /* setImage(`http://localhost:3002/storage/${response.data[0].path}`) */
       setDetails(response.data[0])
+      dispatch(clearLoading())
     })
-    .catch(e=>console.log("error getdetail", e))
+    .catch(e=>{console.log("error getdetail", e);dispatch(clearLoading())})
   }
 
   const getImage = (path) => {
@@ -128,7 +132,7 @@ export default function DetailsProduct({ route, navigation }) {
   }, [details])
 
   useEffect(()=>{
-    const socket = io('https://apigolozur.onrender.com')
+    const socket = io('http://10.0.2.2:3002')
     socket.on(`product`, (socket) => {
       console.log("socket", socket)
       setDetails((prevData)=>{

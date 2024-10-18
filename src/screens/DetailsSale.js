@@ -6,7 +6,7 @@ import apiClient from '../utils/client';
 import Table from '../components/Table';
 import useLocalStorage from '../hooks/useLocalStorage';
 import Button from '../components/Button';
-
+import { clearLoading, setLoading } from '../redux/loadingSlice'
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
@@ -19,7 +19,9 @@ export default function DetailsSale({ route, navigation }) {
   const dispatch = useAppDispatch();
 
   const getDetails = () => {
-    console.log('id', id, 'token', user.token, userStorage)
+    dispatch(setLoading({
+      message: `Cargando datos`
+    }))
     apiClient.get(`/sale/${id}`,
     {
         headers: {
@@ -29,8 +31,9 @@ export default function DetailsSale({ route, navigation }) {
     .then(response=>{
       console.log("res",response.data)
       setDetails(response.data)
+      dispatch(clearLoading())
     })
-    .catch(e=>console.log("error", e))
+    .catch(e=>{console.log("error", e);dispatch(clearLoading())})
   }
 
   useEffect(() => {

@@ -10,6 +10,7 @@ import apiClient from '../utils/client';
 import { useDispatch } from 'react-redux';
 import { setAlert } from '../redux/alertSlice';
 import useLocalStorage from '../hooks/useLocalStorage';
+import { clearLoading, setLoading } from '../redux/loadingSlice';
 
 export default function UpdatePrice({open, onClose, updateQuery}) {
 
@@ -33,6 +34,9 @@ export default function UpdatePrice({open, onClose, updateQuery}) {
               }))
             }
             if (formValue.categoria !== '' || formValue.marca !== '' || formValue.proveedor !== '') {
+              dispatch(setLoading({
+                message: `Actualizando producto`
+              }))
               apiClient.patch(`/product`, formValue,
               {
                 headers: {
@@ -43,9 +47,9 @@ export default function UpdatePrice({open, onClose, updateQuery}) {
                 console.log(response)
                 await updateQuery()
                 formik.resetForm()
-                onClose()
+                onClose();dispatch(clearLoading())
               })
-              .catch(e=>console.log("error", e))
+              .catch(e=>{console.log("error", e);dispatch(clearLoading())})
             }else{
               return dispatch(setAlert({
                 message: 'Tiene que elegir algun filtro',

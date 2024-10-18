@@ -18,6 +18,10 @@ import useInternetStatus from '../hooks/useInternetStatus';
 import { OfflineContext } from '../context.js/contextOffline';
 import useFilteredArray from '../hooks/useFilteredArray';
 import AddProduct from '../components/AddProduct';
+import AlertPostSale from '../components/AlertPostSale';
+
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 const renderItem = ({ item, navigation, addSelectProduct }) => {
   return(
@@ -53,6 +57,8 @@ export default function NewSale({navigation}) {
     const {data: saleStorage, saveData: setSaleStorage} = useLocalStorage([],'saleStorage')
     const [selectProduct, setSelectProduct] = useState(undefined)
     const [openAddProduct, setOpenAddProduct] = useState(false)
+    const [openAlertPost, setOpenAlertPost] = useState(false)
+    const today = new Date()
 
     const cliente = useInputValue('','')
     const search = useInputValue('','')
@@ -91,11 +97,15 @@ export default function NewSale({navigation}) {
     }
 
     const getProductSearch = (input, categorie, brand, provider) => {
+      dispatch(setLoading({
+        message: `Actualizando productos`
+      }))
       apiClient.post(`/product/search`, {input, categoria: categorie, marca: brand, proveedor: provider})
       .then(response=>{
           setDataSearch(response.data)
+          dispatch(clearLoading())
       })
-      .catch(e=>console.log("error", e))
+      .catch(e=>{console.log("error", e);dispatch(clearLoading())})
     }
 
     useEffect(()=>{
@@ -113,7 +123,7 @@ export default function NewSale({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('https://apigolozur.onrender.com')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`/product`, (socket) => {
         console.log("escucho socket",socket);
         refreshProducts()
@@ -167,8 +177,156 @@ export default function NewSale({navigation}) {
     setOpenAddProduct(true)
   }
 
+  const postOffline = async () => {
+    await setSaleStorage([...saleStorage, {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value}])
+    trueSaleStorage()
+    setOpenAlertPost(true)
+  }
+
+  const postSale = async()=>{
+      if (lineaVenta.length===0 || total <= 0) {
+        dispatch(setAlert({
+          message: `No se agregaron productos al carrito`,
+          type: 'warning'
+        }))
+        return
+      }
+      if (cliente.value==='') {
+        dispatch(setAlert({
+          message: `No se ingreso ningun cliente`,
+          type: 'warning'
+        }))
+        return
+      }
+      if(!offline){
+        postOffline()
+        return
+      }
+      dispatch(setLoading({
+        message: `Actualizando productos`
+      }))
+      apiClient.post('/sale', {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value},{
+        headers: {
+          Authorization: `Bearer ${user.token || userStorage.token}` 
+        }
+      })
+      .then((r)=>{
+        dispatch(clearLoading());
+      })
+      .catch((e)=>{console.log('error post sale',e);dispatch(clearLoading());})
+      setOpenAlertPost(true)
+  }
+
+  const generatePdf = async () => {
+    const itemsText = lineaVenta.map(item => `
+      <div class="it">
+        <p class="it">${(item.descripcion).toUpperCase()}</p>
+        <div class="itemList">
+          <div class="flex" >
+            <p class="it">${item.cantidad}x</p>
+            <p class="it">$${(item.precioUnitario).toLocaleString('es-ES')}</p>
+          </div>
+          <p class="it">$${(item.total).toLocaleString('es-ES')}</p>
+        </div>
+      </div>
+    `).join('');
+  
+    const htmlContent = `
+      <html>
+        <head>
+          <style>
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 15px;
+              margin: 0;
+              padding: 0;
+            }
+            .header {
+              margin-left: 5px;
+              padding: 0;
+            }
+            .header h2 {
+              text-align: center;
+              padding: 0;
+              margin-bottom: 5px;
+              font-size: 18px;
+            }
+            .header p {
+              padding: 0;
+              margin: 0;
+              margin-bottom: 2px;
+              font-size: 18px;
+            }
+            .details {
+              margin: 0;
+              font-size: 20px;
+              padding: 0;
+            }
+            .flex {
+              display: flex;
+              margin: 0;
+              padding: 0;
+            }
+            .itemList{
+              display: flex;
+              padding: 0px 3px;
+              margin: 0;
+              padding: 0;
+              justify-content: space-between;
+            }
+            .it{
+              margin: 0;
+              padding: 0;
+            }
+            .total {
+              margin: 0;
+              font-weight: bold;
+              text-align: right;
+              font-size: 22px;
+              padding: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>GOLOZUR</h2>
+            <p>Fecha: ${today.toISOString().split('T')[0]}</p>
+            <p>Cliente: ${cliente.value}</p>
+            <p>*NO VALIDO COMO FACTURA</p>
+          </div>
+          <hr/>
+          <div class="details">
+            ${itemsText}
+          </div>
+          <hr/>
+          <div class="total">
+            <p>Total Neto $ ${(total).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </div>
+        </body>
+      </html>
+    `;
+  
+    try {
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        width: 200,  // 57 mm en puntos
+        height: 192.85
+      });
+  
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(uri);
+      } else {
+        console.log('Compartir no disponible en este dispositivo');
+      }
+      navigation.navigate('Sale')
+    } catch (error) {
+      console.error('Error generando el PDF:', error);
+    }
+  };
+
   useEffect(()=>{
-    const socket = io('https://apigolozur.onrender.com')
+    const socket = io('http://10.0.2.2:3002')
     socket.on(`/sale`, (socket) => {
         console.log('escucho', socket)
       /* getSale() */
@@ -212,6 +370,10 @@ export default function NewSale({navigation}) {
           selectProduct &&
           <AddProduct open={openAddProduct} onClose={()=>setOpenAddProduct(false)} product={selectProduct} addCart={(item, cantidad, totalLV)=>addCart(item,cantidad, totalLV)} />
         }
+        {
+          openAlertPost && 
+          <AlertPostSale open={openAlertPost} onClose={()=>navigation.navigate('Sale')} post={()=>navigation.navigate('Sale')} print={()=>generatePdf()} />
+        }
         <ResumeBottomSheet onPress={() => setOpenBS(true)} totalCart={total} longCart={lineaVenta.length}  />
         <MyBottomSheet open={openBS} onClose={()=>setOpenBS(false)} fullScreen={true} >
           <SliderSale itemSlide={[
@@ -242,41 +404,7 @@ export default function NewSale({navigation}) {
                   return elem
                 }))}
             />
-          ]} onCloseSheet={()=>setOpenBS(false)} finishSale={
-            async()=>{
-              console.log(user, userStorage)
-                if (lineaVenta.length===0 || total <= 0) {
-                  dispatch(setAlert({
-                    message: `No se agregaron productos al carrito`,
-                    type: 'warning'
-                  }))
-                  return
-                }
-                if (cliente.value==='') {
-                  console.log('no se ingreso ningun cliente')
-                  dispatch(setAlert({
-                    message: `No se ingreso ningun cliente`,
-                    type: 'warning'
-                  }))
-                  return
-                }
-                if(!offline){
-                  await setSaleStorage([...saleStorage, {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value}])
-                  trueSaleStorage()
-                  navigation.navigate('Sale')
-                  return
-                }
-                apiClient.post('/sale', {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value},{
-                  headers: {
-                    Authorization: `Bearer ${user.token || userStorage.token}` 
-                  }
-                })
-                .then((r)=>{
-                  navigation.navigate('Sale')
-                })
-                .catch((e)=>console.log('error post sale',e))
-              }
-          } />
+          ]} onCloseSheet={()=>setOpenBS(false)} finishSale={postSale} />
         </MyBottomSheet>
     </SafeAreaView>
   )

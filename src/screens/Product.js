@@ -96,6 +96,9 @@ export default function Product({navigation}) {
     }
 
     const getProductSearch = (input, categorie, brand, provider) => {
+      dispatch(setLoading({
+        message: `Actualizando productos`
+      }))
       apiClient.post(`/product/search`, {input, categoria: categorie, marca: brand, proveedor: provider},
         {
           headers: {
@@ -121,7 +124,7 @@ export default function Product({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('https://apigolozur.onrender.com')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`product`, (socket) => {
         refreshProducts()
         setData((prevData)=>{
