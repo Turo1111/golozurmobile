@@ -16,15 +16,16 @@ export const OfflineProvider = ({ children }) => {
   const user = useAppSelector(getUser) 
   const {data: userStorage} = useLocalStorage([],'user')
   const [isSaleStorage, setIsSaleStorage] = useState(false)
+  const {data: offlineStorage, saveData: setOfflineStorage} = useLocalStorage(true,'offlineStorage')
 
   const setModeOffline = async () => {
     setOffline(prevData=>!offline)
+    setOfflineStorage(!offlineStorage)
     if (!offline) {
       const saleStorage = await AsyncStorage.getItem('saleStorage');
       let parsedSaleStorage = [];
       if (saleStorage) {
         parsedSaleStorage = JSON.parse(saleStorage);
-        console.log(parsedSaleStorage.length)
         dispatch(setLoading({
           message: `Guardando ventas`
         }))
@@ -56,8 +57,10 @@ export const OfflineProvider = ({ children }) => {
   }
 
   useEffect(() => {
-    console.log("aca",saleStorage)
-  }, [isSaleStorage])
+    if (offline !== offlineStorage) {
+      setOffline(offlineStorage)
+    }
+  }, [offlineStorage])
   
 
   const valueContext = {
