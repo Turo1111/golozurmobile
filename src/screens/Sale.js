@@ -29,6 +29,7 @@ export default function Sale({navigation}) {
     const [data, setData] = useState([])
     const search = useInputValue('','')
     const {data: saleStorage, clearData: clearDataSaleStorage} = useLocalStorage([],'saleStorage')
+    const {data: offlineStorage, saveData: setOfflineStorage} = useLocalStorage(true,'offlineStorage')
 
     const [query, setQuery] = useState({skip: 0, limit: 25})
 
@@ -92,7 +93,7 @@ export default function Sale({navigation}) {
     },[query])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('https://apigolozur.onrender.com')
       socket.on(`sale`, (socket) => {
         console.log('escucho', socket)
         setData((prevData)=>{
@@ -146,7 +147,7 @@ export default function Sale({navigation}) {
   return (
     <View>
       {
-        offline ?
+        !offlineStorage ?
         <View>
 
           <Search placeholder={'Buscar ventas'} searchInput={search} />

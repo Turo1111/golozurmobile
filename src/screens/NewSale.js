@@ -123,7 +123,7 @@ export default function NewSale({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('https://apigolozur.onrender.com')
       socket.on(`/product`, (socket) => {
         console.log("escucho socket",socket);
         refreshProducts()
@@ -147,6 +147,7 @@ export default function NewSale({navigation}) {
   }, [navigation]);
 
   useEffect(()=>{
+    console.log(lineaVenta)
     const sumWithInitial = lineaVenta.reduce(
         (accumulator, currentValue) => {
           let suma = parseFloat(accumulator) + parseFloat(currentValue.total)
@@ -160,15 +161,15 @@ export default function NewSale({navigation}) {
     setTotal(prevData=>parseFloat(parseFloat(sumWithInitial).toFixed(2)))
   },[lineaVenta, porcentaje])
 
-  const addCart = (item, cantidad, totalLV) => {
+  const addCart = (item, cantidad, totalLV, precioUnitario) => {
     setLineaVenta((prevData)=>{
         const exist = prevData.find((elem)=>elem._id===item._id)
         if (exist) {
             return prevData.map((elem) =>
-                elem._id === item._id ? {...item, cantidad: cantidad, total: totalLV} : elem
+                elem._id === item._id ? {...item, cantidad: cantidad, total: totalLV, precioUnitario: precioUnitario} : elem
             )
         }
-        return [...prevData, {...item, cantidad: cantidad, total: totalLV, idProducto: item._id}]
+        return [...prevData, {...item, cantidad: cantidad, total: totalLV, idProducto: item._id, precioUnitario: precioUnitario}]
     })
   }
 
@@ -326,10 +327,8 @@ export default function NewSale({navigation}) {
   };
 
   useEffect(()=>{
-    const socket = io('http://10.0.2.2:3002')
+    const socket = io('https://apigolozur.onrender.com')
     socket.on(`/sale`, (socket) => {
-        console.log('escucho', socket)
-      /* getSale() */
     })
     return () => {
       socket.disconnect();
@@ -368,7 +367,24 @@ export default function NewSale({navigation}) {
         />
         {
           selectProduct &&
-          <AddProduct open={openAddProduct} onClose={()=>setOpenAddProduct(false)} product={selectProduct} addCart={(item, cantidad, totalLV)=>addCart(item,cantidad, totalLV)} />
+          <AddProduct open={openAddProduct} onClose={()=>setOpenAddProduct(false)} product={selectProduct} addCart={(item, cantidad, totalLV, precioUnitario)=>addCart(item,cantidad, totalLV, precioUnitario)} 
+            /* onChangePrecioUnitario={(value, idProduct)=>{
+              let parseValue = parseFloat(value)
+              if (value === '') {
+                parseValue = 0
+              }
+              console.log(parseValue, idProduct)
+              setLineaVenta((prevData)=>{
+                const itemSale = prevData.find(elem=>elem._id === idProduct)
+                if(!itemSale){
+                  return prevData
+                }
+                const newItemSale = {...itemSale, precioUnitario: parseValue, total: itemSale?.cantidad*parseValue}
+                const prevFiltered = prevData.map((elem)=>elem._id===idProduct ? newItemSale : elem)
+                return prevFiltered
+              })
+            }} */
+          />
         }
         {
           openAlertPost && 

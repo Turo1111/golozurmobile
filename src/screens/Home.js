@@ -17,7 +17,7 @@ export default function Home({navigation}) {
   const dispatch = useAppDispatch();
   const {data: userLocalStorage, clearData} = useLocalStorage([], 'user')
   const {data: saleStorage, clearData: clearDataSaleStorage} = useLocalStorage([],'saleStorage')
-  const {offline, setModeOffline, isSaleStorage} = useContext(OfflineContext)
+  const {offline, setModeOffline, isSaleStorage, correctMode} = useContext(OfflineContext)
   
   const logOut = async () => {
     try {
@@ -38,14 +38,13 @@ export default function Home({navigation}) {
           <Text style={{fontSize: 14, fontFamily: 'Cairo-Bold', color: '#537FE7' }} >Cerrar sesion</Text> 
         </Pressable>
       </View>
-      <View style={{flexDirection: 'row', paddingHorizontal: 15, justifyContent: 'space-between', alignItems: 'center'}}>
-        <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#252525' }} >Modo online: </Text> 
+      <View style={{flexDirection: 'row', paddingHorizontal: 15, justifyContent: 'center', alignItems: 'center'}}>
         <ToggleButton onPress={async()=>{
           setModeOffline()
         }} />
       </View>
       {
-        isSaleStorage &&
+        saleStorage?.length !== 0 &&
         <View style={{flexDirection: 'row', paddingHorizontal: 15, justifyContent: 'space-between', alignItems: 'center'}}>
         <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#252525' }} >Hay ventas sin guardar</Text> 
         </View>

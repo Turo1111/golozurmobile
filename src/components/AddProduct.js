@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import ModalContainer from './ModalContainer'
 import Button from './Button'
@@ -7,16 +7,24 @@ export default function AddProduct({open, onClose, product, addCart}) {
 
     const [cantidad, setCantidad] = useState(1)
     const [total, setTotal] = useState(0)
+    const [precioUnitario, setPrecioUnitario] = useState(0)
 
     useEffect(()=>{
-        setTotal(prevData=>parseFloat(cantidad)*parseFloat(product.precioUnitario))
-    },[cantidad])
+        setTotal(prevData=>parseFloat(cantidad)*parseFloat(precioUnitario))
+    },[cantidad, precioUnitario])
 
     useEffect(()=>{
-        if (product !== undefined && total !== parseFloat(cantidad)*parseFloat(product.precioUnitario)) {
-            setTotal(product.precioUnitario)
-        }   
+        console.log(product.precioUnitario)
+        if (product) {
+            setPrecioUnitario(product.precioUnitario)
+        }
     },[product])
+
+    useEffect(()=>{
+        if (product !== undefined && total !== parseFloat(cantidad)*parseFloat(precioUnitario)) {
+            setTotal(precioUnitario)
+        }   
+    },[product, precioUnitario])
 
   return (
     <ModalContainer
@@ -59,12 +67,39 @@ export default function AddProduct({open, onClose, product, addCart}) {
                 <Text style={{fontSize: 20 ,textAlign: 'center',fontWeight: 'bold', marginBottom: 5, backgroundColor: '#fff', borderRadius: 10}}>Total: $ {total}</Text>
             </View>
         </View>
+        <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}} > 
+            <Text style={{fontSize: 16, marginRight: 5}}>Precio unitario : $</Text>
+            <TextInput placeholder={'Precio unitario'} style={[styles.input, {width: 150}]} value={precioUnitario.toString()} onChangeText={(e)=>{
+                if (e!=='') {
+                    setPrecioUnitario(prevData=>e);
+                    setTotal(prevData=>parseFloat(cantidad)*parseFloat(e))
+                    /* onChangePrecioUnitario(e, product._id) */
+                    return
+                }
+                setPrecioUnitario(prevData=>0);
+                return
+
+            }}  keyboardType='numeric' />
+        </View>
         <View style={{flexDirection: 'row', justifyContent: 'space-around'}} >
             <Button text={'Cancelar'} onPress={onClose} />
-            <Button text={'Aceptar'} onPress={()=>{onClose();addCart(product, cantidad, total)}} />
+            <Button text={'Aceptar'} onPress={()=>{onClose();addCart(product, cantidad, total, precioUnitario);setCantidad(1)}} />
         </View>
     </ModalContainer>
   )
 }
 
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({
+    input: {
+        marginVertical: 10,
+        borderWidth: 1,
+        paddingHorizontal: 15,
+        paddingVertical: 5,
+        borderRadius: 10,
+        color: '#7F8487',
+        borderColor: '#D9D9D9',
+        fontSize: 16,
+        backgroundColor: '#fff',
+        fontWeight: 'bold'
+    }
+})

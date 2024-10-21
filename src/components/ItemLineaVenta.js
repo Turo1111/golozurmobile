@@ -12,6 +12,7 @@ export default function ItemLineaVenta({ elem, onClick, upQTY, downQTY, downQTY1
         </View>
         <Text style={styles.total}>${elem.total}</Text>
       </View>
+      <Text style={styles.category}>Precio unitario: ${elem.precioUnitario}</Text>
       <View style={styles.controlsContainer}>
        {/*  <View  style={{flexDirection: 'row', justifyContent: 'space-between'}}>
           <View style={styles.quantityControls}>

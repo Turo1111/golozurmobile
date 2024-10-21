@@ -23,7 +23,7 @@ export default function CartSale({lineaVenta, total,  onClick, upQTY, downQTY, u
         />
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}} >
           <Text style={{fontSize: 18}}>Total: ${total}</Text>
-          <TextInput placeholder={'Porcentaje'} style={[styles.input, {width: 150}]} {...porcentaje} keyboardType='numeric' />
+          {/* <TextInput placeholder={'Porcentaje'} style={[styles.input, {width: 150}]} {...porcentaje} keyboardType='numeric' /> */}
         </View>
         <TextInput placeholder={'Cliente'} style={styles.input} {...cliente}/>
     </View>

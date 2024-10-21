@@ -7,7 +7,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "build": "npx eas build --platform android --dev",
+    "build": "npx eas build --platform android ",
     "dev": "expo start --go"
   },
   "dependencies": {

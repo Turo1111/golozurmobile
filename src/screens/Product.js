@@ -57,6 +57,8 @@ export default function Product({navigation}) {
     const {data: productLocalStorage} = useLocalStorage([],'productStorage')
     const fechaHoy = new Date()
     const [openPrint, setOpenPrint] = useState(false)
+    
+    const {data: offlineStorage, saveData: setOfflineStorage} = useLocalStorage(true,'offlineStorage')
 
     console.log(fechaHoy)
 
@@ -124,7 +126,7 @@ export default function Product({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('https://apigolozur.onrender.com')
       socket.on(`product`, (socket) => {
         refreshProducts()
         setData((prevData)=>{
@@ -159,7 +161,7 @@ export default function Product({navigation}) {
   return (
     <View>
       {
-        offline ?
+        !offlineStorage ?
         <View>
           <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>setOpenFilter(true)} />
           <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15}} >

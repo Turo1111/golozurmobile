@@ -9,7 +9,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export const OfflineContext = createContext();
 
 export const OfflineProvider = ({ children }) => {
-  const [offline, setOffline] = useState(true);
   const {data: productStorage, saveData: setProductStorage} = useLocalStorage([],'productStorage')
   const dispatch = useAppDispatch();
   const {data: saleStorage, clearData: clearDataSaleStorage} = useLocalStorage([],'saleStorage')
@@ -19,9 +18,8 @@ export const OfflineProvider = ({ children }) => {
   const {data: offlineStorage, saveData: setOfflineStorage} = useLocalStorage(true,'offlineStorage')
 
   const setModeOffline = async () => {
-    setOffline(prevData=>!offline)
     setOfflineStorage(!offlineStorage)
-    if (!offline) {
+    if (!offlineStorage) {
       const saleStorage = await AsyncStorage.getItem('saleStorage');
       let parsedSaleStorage = [];
       if (saleStorage) {
@@ -56,18 +54,20 @@ export const OfflineProvider = ({ children }) => {
     .catch(e=>{console.log(e);dispatch(clearLoading())})
   }
 
-  useEffect(() => {
+
+
+  /* useEffect(() => {
+    console.log("offline",offline, offlineStorage)
     if (offline !== offlineStorage) {
       setOffline(offlineStorage)
     }
   }, [offlineStorage])
-  
+   */
 
   const valueContext = {
-    offline,
     setModeOffline,
     isSaleStorage,
-    trueSaleStorage: () => setIsSaleStorage(true)
+    trueSaleStorage: () => setIsSaleStorage(true),
   };
 
   return (
