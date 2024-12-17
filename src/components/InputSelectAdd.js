@@ -131,7 +131,7 @@ export default function InputSelectAdd({value, onChange, name, path}) {
     },[value])
 
     useEffect(()=>{
-        const socket = io('https://apigolozur.onrender.com')
+        const socket = io('http://10.0.2.2:3002')
         socket.on(`${path}`, (socket) => {
           setData((prevData)=>{
             const exist = prevData.find(elem => elem._id === socket.data._id )

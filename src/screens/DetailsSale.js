@@ -75,17 +75,17 @@ export default function DetailsSale({ route, navigation }) {
               text-align: center;
               padding: 0;
               margin-bottom: 5px;
-              font-size: 18px;
+              font-size: 15px;
             }
             .header p {
               padding: 0;
               margin: 0;
               margin-bottom: 2px;
-              font-size: 18px;
+              font-size: 15px;
             }
             .details {
               margin: 0;
-              font-size: 20px;
+              font-size: 15px;
               padding: 0;
             }
             .flex {
@@ -108,7 +108,7 @@ export default function DetailsSale({ route, navigation }) {
               margin: 0;
               font-weight: bold;
               text-align: right;
-              font-size: 22px;
+              font-size: 18px;
               padding: 0;
             }
           </style>

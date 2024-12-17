@@ -23,6 +23,14 @@ import AlertPostSale from '../components/AlertPostSale';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+
+const formatDate = (date) => {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses van de 0 a 11
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 const renderItem = ({ item, navigation, addSelectProduct }) => {
   return(
     <Pressable style={styles.item} onPress={()=>addSelectProduct(item)}>
@@ -59,6 +67,7 @@ export default function NewSale({navigation}) {
     const [openAddProduct, setOpenAddProduct] = useState(false)
     const [openAlertPost, setOpenAlertPost] = useState(false)
     const today = new Date()
+    const {data: offlineStorage, saveData: setOfflineStorage} = useLocalStorage(true,'offlineStorage')
 
     const cliente = useInputValue('','')
     const search = useInputValue('','')
@@ -97,33 +106,28 @@ export default function NewSale({navigation}) {
     }
 
     const getProductSearch = (input, categorie, brand, provider) => {
-      dispatch(setLoading({
-        message: `Actualizando productos`
-      }))
+      
       apiClient.post(`/product/search`, {input, categoria: categorie, marca: brand, proveedor: provider})
       .then(response=>{
           setDataSearch(response.data)
-          dispatch(clearLoading())
       })
-      .catch(e=>{console.log("error", e);dispatch(clearLoading())})
+      .catch(e=>{console.log("error", e);})
     }
 
     useEffect(()=>{
-      getProduct(query.skip, query.limit)
-    },[query])
+      if (!offlineStorage) {
+        getProduct(query.skip, query.limit)
+      }
+    },[query, offlineStorage])
 
     useEffect(()=>{
-      if(!offline){
-        console.log('buscando offline')
-        return
-      }
       if (search) {
         getProductSearch(search.value, activeCategorie._id, activeBrand._id, activeProvider._id)
       }
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('https://apigolozur.onrender.com')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`/product`, (socket) => {
         console.log("escucho socket",socket);
         refreshProducts()
@@ -179,7 +183,9 @@ export default function NewSale({navigation}) {
   }
 
   const postOffline = async () => {
-    await setSaleStorage([...saleStorage, {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value}])
+    let today = new Date()
+    let formatToday = today.toISOString()
+    await setSaleStorage([...saleStorage, {createdAt: formatToday, itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value}])
     trueSaleStorage()
     setOpenAlertPost(true)
   }
@@ -199,12 +205,12 @@ export default function NewSale({navigation}) {
         }))
         return
       }
-      if(!offline){
+      if(offlineStorage){
         postOffline()
         return
       }
       dispatch(setLoading({
-        message: `Actualizando productos`
+        message: `dproductos`
       }))
       apiClient.post('/sale', {itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value},{
         headers: {
@@ -250,17 +256,17 @@ export default function NewSale({navigation}) {
               text-align: center;
               padding: 0;
               margin-bottom: 5px;
-              font-size: 18px;
+              font-size: 15px;
             }
             .header p {
               padding: 0;
               margin: 0;
               margin-bottom: 2px;
-              font-size: 18px;
+              font-size: 15px;
             }
             .details {
               margin: 0;
-              font-size: 20px;
+              font-size: 15px;
               padding: 0;
             }
             .flex {
@@ -283,7 +289,7 @@ export default function NewSale({navigation}) {
               margin: 0;
               font-weight: bold;
               text-align: right;
-              font-size: 22px;
+              font-size: 18px;
               padding: 0;
             }
           </style>
@@ -327,7 +333,7 @@ export default function NewSale({navigation}) {
   };
 
   useEffect(()=>{
-    const socket = io('https://apigolozur.onrender.com')
+    const socket = io('http://10.0.2.2:3002')
     socket.on(`/sale`, (socket) => {
     })
     return () => {
@@ -337,12 +343,12 @@ export default function NewSale({navigation}) {
 
   return (
     <SafeAreaView style={styles.content}  >
-        <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>{offline && setOpenFilter(true)}} />
-        <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: `${!offline ? '#C7253E':'#799351'}`, paddingHorizontal: 15 }} >{!offline ? 'Estas en modo sin conexion' : 'Estas en modo con conexion'}</Text>
+        <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={()=>{!offlineStorage && setOpenFilter(true)}} />
+        <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: `${offlineStorage ? '#C7253E':'#799351'}`, paddingHorizontal: 15 }} >{offlineStorage ? 'Estas en modo sin conexion' : 'Estas en modo con conexion'}</Text>
         <FlatList
           style={{height: '83%'}}
           data={
-            !offline ? filteredArray :
+            offlineStorage ? filteredArray :
             (search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ? 
             dataSearch : 
             data)

@@ -15,6 +15,7 @@ import useInternetStatus from '../hooks/useInternetStatus';
 import { OfflineContext } from '../context.js/contextOffline';
 import useFilteredArray from '../hooks/useFilteredArray';
 import PrintProduct from '../components/PrintProduct';
+import { setAlert } from '../redux/alertSlice';
 
 const renderItem = ({ item, navigation, isConnected }) => {
   
@@ -98,9 +99,7 @@ export default function Product({navigation}) {
     }
 
     const getProductSearch = (input, categorie, brand, provider) => {
-      dispatch(setLoading({
-        message: `Actualizando productos`
-      }))
+      
       apiClient.post(`/product/search`, {input, categoria: categorie, marca: brand, proveedor: provider},
         {
           headers: {
@@ -110,23 +109,24 @@ export default function Product({navigation}) {
       )
       .then(response=>{
           setDataSearch(response.data)
-          ;dispatch(clearLoading())
       })
       .catch(e=>{console.log("error", e);dispatch(clearLoading())})
     }
 
     useEffect(()=>{
-      getProduct(query.skip, query.limit)
-    },[query])
+      if(!offlineStorage){
+        getProduct(query.skip, query.limit)
+      }
+    },[query, offlineStorage])
 
     useEffect(()=>{
-      if (search) {
+      if (search && !offlineStorage) {
         getProductSearch(search.value, activeCategorie._id, activeBrand._id, activeProvider._id)
       }
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('https://apigolozur.onrender.com')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`product`, (socket) => {
         refreshProducts()
         setData((prevData)=>{
@@ -146,7 +146,9 @@ export default function Product({navigation}) {
 
   const refreshProducts = () => {
     search.clearValue()
-    getProduct(query.skip, query.limit)
+    if(!offlineStorage){
+      getProduct(query.skip, query.limit)
+    }
   };
 
   useEffect(() => {
@@ -156,7 +158,6 @@ export default function Product({navigation}) {
 
     return unsubscribe
   }, [navigation]);
-
   
   return (
     <View>
