@@ -32,6 +32,7 @@ export default function Sale({navigation}) {
     const dispatch = useAppDispatch();
     const [data, setData] = useState([])
     const search = useInputValue('','')
+    const [dataSearch, setDataSearch] = useState([])
     const {data: saleStorage, clearData: clearDataSaleStorage} = useLocalStorage([],'saleStorage')
     const {data: offlineStorage, saveData: setOfflineStorage} = useLocalStorage(true,'offlineStorage')
 
@@ -74,6 +75,7 @@ export default function Sale({navigation}) {
       dispatch(setLoading({
         message: `Actualizando ventas`
       }))
+      console.log(input)
       try {
           const response = await apiClient.post(`/sale/search`, {input});
           setDataSearch(response.data);
@@ -84,11 +86,22 @@ export default function Sale({navigation}) {
       }
     }
 
-    useEffect(()=>{
-      if ( search.value !== '') {
-        getSaleSearch(search)
+    useEffect(() => {
+      let timeoutId;
+  
+      if (search.value !== '') {
+        timeoutId = setTimeout(() => {
+          getSaleSearch(search.value);
+          console.log('buscar', search.value);
+        }, 1000);
       }
-    },[search]) 
+  
+      return () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+    }, [search.value]); 
 
     useEffect(()=>{
       if (user && !offlineStorage) {
@@ -97,7 +110,7 @@ export default function Sale({navigation}) {
     },[query, offlineStorage])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('https://gzapi.vercel.app')
       socket.on(`sale`, (socket) => {
         console.log('escucho', socket)
         setData((prevData)=>{
@@ -309,7 +322,7 @@ const generatePdf = async (cliente) => {
           <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
           <FlatList 
             style={{height: '83%'}}
-            data={data}
+            data={search.value !== '' ? dataSearch : data}
             renderItem={({ item }) =>{
               return (
                   <Pressable style={styles.item} onPress={()=>{

@@ -8,7 +8,7 @@ TaskManager.defineTask('PRODUCT_FETCH_TASK', async () => {
   try {
     const now = Date.now();
 
-    axios.get('http://10.0.2.2:3002/product/active')
+    axios.get('https://gzapi.vercel.app/product/active')
     .then(async(r)=>{})
     .catch(async(e)=>{})
 
