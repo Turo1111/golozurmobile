@@ -40,7 +40,7 @@ export default function DetailsProduct({ route, navigation }) {
   const uploadImage = async (uri) => {
     try {
       let filename = ''
-      await FileSystem.uploadAsync('http://10.0.2.2:3002/product/uploadImage', uri, {
+      await FileSystem.uploadAsync('https://gzapi.vercel.app/product/uploadImage', uri, {
         fieldName: 'myfile',
         httpMethod: 'POST',
         uploadType: FileSystem.FileSystemUploadType.MULTIPART,
@@ -132,7 +132,7 @@ export default function DetailsProduct({ route, navigation }) {
   }, [details])
 
   useEffect(()=>{
-    const socket = io('http://10.0.2.2:3002')
+    const socket = io('https://gzapi.vercel.app')
     socket.on(`product`, (socket) => {
       console.log("socket", socket)
       setDetails((prevData)=>{

@@ -127,7 +127,7 @@ export default function NewSale({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('https://gzapi.vercel.app')
       socket.on(`/product`, (socket) => {
         console.log("escucho socket",socket);
         refreshProducts()
@@ -224,116 +224,180 @@ export default function NewSale({navigation}) {
       setOpenAlertPost(true)
   }
 
-  const generatePdf = async () => {
-    const itemsText = lineaVenta.map(item => `
-      <div class="it">
-        <p class="it">${(item.descripcion).toUpperCase()}</p>
-        <div class="itemList">
-          <div class="flex" >
-            <p class="it">${item.cantidad}x</p>
-            <p class="it">$${(item.precioUnitario).toLocaleString('es-ES')}</p>
-          </div>
-          <p class="it">$${(item.total).toLocaleString('es-ES')}</p>
-        </div>
-      </div>
-    `).join('');
+  const generatePdf = async (cliente) => {
+    let details = undefined;
+    if (offlineStorage) {
+      try {
+        const jsonValue = await AsyncStorage.getItem('saleStorage');
+        if (jsonValue !== null) {
+          const value = JSON.parse(jsonValue);
+          details = await value.find(elem => elem.cliente === cliente);
+        }
+      } catch (e) {
+        dispatch(setAlert({
+          message: 'Hubo un error al obtener la venta 1',
+          type: 'error'
+        }));
+      }
+    } else {
+      await apiClient.get(`/sale/${cliente}`, {
+        headers: {
+          Authorization: `Bearer ${user.token || userStorage.token}`
+        },
+      })
+      .then(r => {
+        console.log(r.data);
+        details = {
+          itemsSale: r.data.itemsSale,
+          cliente: r.data.r.cliente,
+          total: r.data.r.total,
+          createdAt: r.data.r.createdAt
+        };
+      })
+      .catch(e => {
+        dispatch(setAlert({
+          message: 'Hubo un error al obtener la venta 1',
+          type: 'error'
+        }));
+      });
+    }
   
-    const htmlContent = `
-      <html>
-        <head>
-          <style>
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              font-size: 15px;
-              margin: 0;
-              padding: 0;
-            }
-            .header {
-              margin-left: 5px;
-              padding: 0;
-            }
-            .header h2 {
-              text-align: center;
-              padding: 0;
-              margin-bottom: 5px;
-              font-size: 15px;
-            }
-            .header p {
-              padding: 0;
-              margin: 0;
-              margin-bottom: 2px;
-              font-size: 15px;
-            }
-            .details {
-              margin: 0;
-              font-size: 15px;
-              padding: 0;
-            }
-            .flex {
-              display: flex;
-              margin: 0;
-              padding: 0;
-            }
-            .itemList{
-              display: flex;
-              padding: 0px 3px;
-              margin: 0;
-              padding: 0;
-              justify-content: space-between;
-            }
-            .it{
-              margin: 0;
-              padding: 0;
-            }
-            .total {
-              margin: 0;
-              font-weight: bold;
-              text-align: right;
-              font-size: 18px;
-              padding: 0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h2>GOLOZUR</h2>
-            <p>Fecha: ${today.toISOString().split('T')[0]}</p>
-            <p>Cliente: ${cliente.value}</p>
-            <p>*NO VALIDO COMO FACTURA</p>
+    console.log(details);
+  
+    if (!details) {
+      dispatch(setAlert({
+        message: 'Hubo un error al obtener la venta 2',
+        type: 'error'
+      }));
+      return;
+    }
+  
+    const chunkArray = (array, size) => {
+      const result = [];
+      for (let i = 0; i < array.length; i += size) {
+        result.push(array.slice(i, i + size));
+      }
+      return result;
+    };
+  
+    const itemsChunks = chunkArray(details.itemsSale, 15);
+  
+    const generateHtmlContent = (items, chunkIndex, totalChunks) => {
+      const itemsText = items.map(item => `
+        <div class="it">
+          <p class="it">${(item.descripcion).toUpperCase()}</p>
+          <div class="itemList">
+            <div class="flex">
+              <p class="it">${item.cantidad}x</p>
+              <p class="it">$${(item.precio || item.precioUnitario).toString().toLocaleString('es-ES')}</p>
+            </div>
+            <p class="it">$${(item.total).toString().toLocaleString('es-ES')}</p>
           </div>
-          <hr/>
-          <div class="details">
-            ${itemsText}
-          </div>
-          <hr/>
-          <div class="total">
-            <p>Total Neto $ ${(total).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          </div>
-        </body>
-      </html>
-    `;
+        </div>
+      `).join('');
+  
+      return `
+        <html>
+          <head>
+            <style>
+              body {
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 15px;
+                margin: 0;
+                padding: 0;
+              }
+              .header {
+                margin-left: 5px;
+                padding: 0;
+              }
+              .header h2 {
+                text-align: center;
+                padding: 0;
+                margin-bottom: 5px;
+                font-size: 15px;
+              }
+              .header p {
+                padding: 0;
+                margin: 0;
+                margin-bottom: 2px;
+                font-size: 15px;
+              }
+              .details {
+                margin: 0;
+                font-size: 15px;
+                padding: 0;
+              }
+              .flex {
+                display: flex;
+                margin: 0;
+                padding: 0;
+              }
+              .itemList {
+                display: flex;
+                padding: 0px 3px;
+                margin: 0;
+                padding: 0;
+                justify-content: space-between;
+              }
+              .it {
+                margin: 0;
+                padding: 0;
+              }
+              .total {
+                margin: 0;
+                font-weight: bold;
+                text-align: right;
+                font-size: 18px;
+                padding: 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h2>GOLOZUR</h2>
+              <p>Fecha: ${details.createdAt.split("T")[0]}</p>
+              <p>Cliente: ${details.cliente}</p>
+              <p>*NO VALIDO COMO FACTURA</p>
+              ${totalChunks > 1 ? `<p>Ticket ${chunkIndex + 1} de ${totalChunks}</p>` : ''}
+            </div>
+            <hr/>
+            <div class="details">
+              ${itemsText}
+            </div>
+            <hr/>
+            ${chunkIndex === totalChunks - 1 ? `
+              <div class="total">
+                <p>Total Neto $ ${(details.total).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+            ` : ''}
+          </body>
+        </html>
+      `;
+    };
   
     try {
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-        width: 200,  // 57 mm en puntos
-        height: 192.85
-      });
+      for (let i = 0; i < itemsChunks.length; i++) {
+        const htmlContent = generateHtmlContent(itemsChunks[i], i, itemsChunks.length);
+        const { uri } = await Print.printToFileAsync({
+          html: htmlContent,
+          width: 200,  // 57 mm en puntos
+          height: 192.85
+        });
   
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(uri);
-      } else {
-        console.log('Compartir no disponible en este dispositivo');
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(uri);
+        } else {
+          console.log('Compartir no disponible en este dispositivo');
+        }
       }
-      navigation.navigate('Sale')
     } catch (error) {
       console.error('Error generando el PDF:', error);
     }
   };
 
   useEffect(()=>{
-    const socket = io('http://10.0.2.2:3002')
+    const socket = io('https://gzapi.vercel.app')
     socket.on(`/sale`, (socket) => {
     })
     return () => {

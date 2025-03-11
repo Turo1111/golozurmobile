@@ -34,6 +34,7 @@ export default function Sale({navigation}) {
     const search = useInputValue('','')
     const {data: saleStorage, clearData: clearDataSaleStorage} = useLocalStorage([],'saleStorage')
     const {data: offlineStorage, saveData: setOfflineStorage} = useLocalStorage(true,'offlineStorage')
+    const [error, setError] = useState(false)
 
     const [query, setQuery] = useState({skip: 0, limit: 25})
 
@@ -65,6 +66,7 @@ export default function Sale({navigation}) {
           })
       } catch (e) {
         console.log("error getSale",e)
+        setError(true)
       } finally {
         dispatch(clearLoading());
       }
@@ -79,6 +81,7 @@ export default function Sale({navigation}) {
           setDataSearch(response.data);
       } catch (e) {
           console.log("error sale search", e);
+          setError(true)
       } finally {
         dispatch(clearLoading())
       }
@@ -97,7 +100,7 @@ export default function Sale({navigation}) {
     },[query, offlineStorage])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('https://gzapi.vercel.app')
       socket.on(`sale`, (socket) => {
         console.log('escucho', socket)
         setData((prevData)=>{
@@ -146,218 +149,248 @@ export default function Sale({navigation}) {
       }
     };
 
-const generatePdf = async (cliente) => {
-  let details = undefined
-  if (offlineStorage) {
-    try {
-      const jsonValue = await AsyncStorage.getItem('saleStorage');
-      if (jsonValue !== null) {
-        const value = JSON.parse(jsonValue);
-        details = await value.find(elem=>elem.cliente === cliente)
-      }
-    } catch (e) {
-      dispatch(setAlert({
-        message: 'Hubo un error al obtener la venta 1',
-        type: 'error'
-      }))
-    }
-  }else{
-    await apiClient.get(`/sale/${cliente}`,
-      {
-          headers: {
-            Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
-          },
-    })
-    .then(r=>{
-      console.log(r.data)
-      details = {itemsSale: r.data.itemsSale, cliente: r.data.r.cliente, total: r.data.r.total, createdAt: r.data.r.createdAt}
-    })
-    .catch(e=> {
-      dispatch(setAlert({
-        message: 'Hubo un error al obtener la venta 1',
-        type: 'error'
-      }))
-    })
-  }
-
-  console.log(details)
-
-  if (!details) {
-    dispatch(setAlert({
-      message: 'Hubo un error al obtener la venta 2',
-      type: 'error'
-    }))
-    return 
-  }
-
-    const itemsText = details.itemsSale.map(item => `
-      <div class="it">
-        <p class="it">${(item.descripcion).toUpperCase()}</p>
-        <div class="itemList">
-          <div class="flex" >
-            <p class="it">${item.cantidad}x</p>
-            <p class="it">$${(item.precio || item.precioUnitario).toString().toLocaleString('es-ES')}</p>
-          </div>
-          <p class="it">$${(item.total).toString().toLocaleString('es-ES')}</p>
-        </div>
-      </div>
-    `).join('');
-  
-    const htmlContent = `
-      <html>
-        <head>
-          <style>
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              font-size: 15px;
-              margin: 0;
-              padding: 0;
-            }
-            .header {
-              margin-left: 5px;
-              padding: 0;
-            }
-            .header h2 {
-              text-align: center;
-              padding: 0;
-              margin-bottom: 5px;
-              font-size: 15px;
-            }
-            .header p {
-              padding: 0;
-              margin: 0;
-              margin-bottom: 2px;
-              font-size: 15px;
-            }
-            .details {
-              margin: 0;
-              font-size: 15px;
-              padding: 0;
-            }
-            .flex {
-              display: flex;
-              margin: 0;
-              padding: 0;
-            }
-            .itemList{
-              display: flex;
-              padding: 0px 3px;
-              margin: 0;
-              padding: 0;
-              justify-content: space-between;
-            }
-            .it{
-              margin: 0;
-              padding: 0;
-            }
-            .total {
-              margin: 0;
-              font-weight: bold;
-              text-align: right;
-              font-size: 18px;
-              padding: 0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h2>GOLOZUR</h2>
-            <p>Fecha: ${details.createdAt.split("T")[0]}</p>
-            <p>Cliente: ${details.cliente}</p>
-            <p>*NO VALIDO COMO FACTURA</p>
-          </div>
-          <hr/>
-          <div class="details">
-            ${itemsText}
-          </div>
-          <hr/>
-          <div class="total">
-            <p>Total Neto $ ${(details.total).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          </div>
-        </body>
-      </html>
-    `;
-  
-    try {
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-        width: 200,  // 57 mm en puntos
-        height: 192.85
-      });
-  
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(uri);
+  const generatePdf = async (cliente) => {
+      let details = undefined;
+      if (offlineStorage) {
+        try {
+          const jsonValue = await AsyncStorage.getItem('saleStorage');
+          if (jsonValue !== null) {
+            const value = JSON.parse(jsonValue);
+            details = await value.find(elem => elem.cliente === cliente);
+          }
+        } catch (e) {
+          dispatch(setAlert({
+            message: 'Hubo un error al obtener la venta 1',
+            type: 'error'
+          }));
+        }
       } else {
-        console.log('Compartir no disponible en este dispositivo');
+        await apiClient.get(`/sale/${cliente}`, {
+          headers: {
+            Authorization: `Bearer ${user.token || userStorage.token}`
+          },
+        })
+        .then(r => {
+          console.log(r.data);
+          details = {
+            itemsSale: r.data.itemsSale,
+            cliente: r.data.r.cliente,
+            total: r.data.r.total,
+            createdAt: r.data.r.createdAt
+          };
+        })
+        .catch(e => {
+          dispatch(setAlert({
+            message: 'Hubo un error al obtener la venta 1',
+            type: 'error'
+          }));
+        });
       }
-    } catch (error) {
-      console.error('Error generando el PDF:', error);
-    }
+    
+      console.log(details);
+    
+      if (!details) {
+        dispatch(setAlert({
+          message: 'Hubo un error al obtener la venta 2',
+          type: 'error'
+        }));
+        return;
+      }
+    
+      const chunkArray = (array, size) => {
+        const result = [];
+        for (let i = 0; i < array.length; i += size) {
+          result.push(array.slice(i, i + size));
+        }
+        return result;
+      };
+    
+      const itemsChunks = chunkArray(details.itemsSale, 15);
+    
+      const generateHtmlContent = (items, chunkIndex, totalChunks) => {
+        const itemsText = items.map(item => `
+          <div class="it">
+            <p class="it">${(item.descripcion).toUpperCase()}</p>
+            <div class="itemList">
+              <div class="flex">
+                <p class="it">${item.cantidad}x</p>
+                <p class="it">$${(item.precio || item.precioUnitario).toString().toLocaleString('es-ES')}</p>
+              </div>
+              <p class="it">$${(item.total).toString().toLocaleString('es-ES')}</p>
+            </div>
+          </div>
+        `).join('');
+    
+        return `
+          <html>
+            <head>
+              <style>
+                body {
+                  font-family: 'Courier New', Courier, monospace;
+                  font-size: 15px;
+                  margin: 0;
+                  padding: 0;
+                }
+                .header {
+                  margin-left: 5px;
+                  padding: 0;
+                }
+                .header h2 {
+                  text-align: center;
+                  padding: 0;
+                  margin-bottom: 5px;
+                  font-size: 15px;
+                }
+                .header p {
+                  padding: 0;
+                  margin: 0;
+                  margin-bottom: 2px;
+                  font-size: 15px;
+                }
+                .details {
+                  margin: 0;
+                  font-size: 15px;
+                  padding: 0;
+                }
+                .flex {
+                  display: flex;
+                  margin: 0;
+                  padding: 0;
+                }
+                .itemList {
+                  display: flex;
+                  padding: 0px 3px;
+                  margin: 0;
+                  padding: 0;
+                  justify-content: space-between;
+                }
+                .it {
+                  margin: 0;
+                  padding: 0;
+                }
+                .total {
+                  margin: 0;
+                  font-weight: bold;
+                  text-align: right;
+                  font-size: 18px;
+                  padding: 0;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h2>GOLOZUR</h2>
+                <p>Fecha: ${details.createdAt.split("T")[0]}</p>
+                <p>Cliente: ${details.cliente}</p>
+                <p>*NO VALIDO COMO FACTURA</p>
+                ${totalChunks > 1 ? `<p>Ticket ${chunkIndex + 1} de ${totalChunks}</p>` : ''}
+              </div>
+              <hr/>
+              <div class="details">
+                ${itemsText}
+              </div>
+              <hr/>
+              ${chunkIndex === totalChunks - 1 ? `
+                <div class="total">
+                  <p>Total Neto $ ${(details.total).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+              ` : ''}
+            </body>
+          </html>
+        `;
+      };
+    
+      try {
+        for (let i = 0; i < itemsChunks.length; i++) {
+          const htmlContent = generateHtmlContent(itemsChunks[i], i, itemsChunks.length);
+          const { uri } = await Print.printToFileAsync({
+            html: htmlContent,
+            width: 200,  // 57 mm en puntos
+            height: 192.85
+          });
+    
+          const isAvailable = await Sharing.isAvailableAsync();
+          if (isAvailable) {
+            await Sharing.shareAsync(uri);
+          } else {
+            console.log('Compartir no disponible en este dispositivo');
+          }
+        }
+      } catch (error) {
+        console.error('Error generando el PDF:', error);
+      }
   };
 
   return (
     <View>
       {
         !offlineStorage ?
-        <View>
-
-          <Search placeholder={'Buscar ventas'} searchInput={search} />
-          <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15}} >
-            <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={()=>{navigation.navigate('NewSale')}} />
+          error ? 
+          <View style={{height: '100%', width: '100%', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'}} >
+            <Text style={{fontSize: 22, fontFamily: 'Cairo-Regular', paddingHorizontal: 15, textAlign: 'center', marginBottom: 25}} >"Ocurrio un error a traer los datos, compruebe su conexion si no es lento"</Text>
+            <Button text={'Volver a intentar'} fontSize={14} width={'45%'} onPress={()=>{
+              setError(false)
+              getSale(query.skip, query.limit)
+            }} />          
           </View>
-          <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
-          <FlatList 
-            style={{height: '83%'}}
-            data={data}
-            renderItem={({ item }) =>{
-              return (
-                  <Pressable style={styles.item} onPress={()=>{
-                      navigation.navigate('DetailsSale', {
-                        id: item._id,
-                        name: item.cliente,
-                      })
-                  }}>
-                      <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', flex: 1}}>
-                          <Text style={{fontSize: 18, color: '#252525'}}>{item.cliente}</Text>
-                          <Text style={{fontSize: 18, fontWeight: 600, color: '#FA9B50'}}>$ {item.total}</Text>
-                      </View>
-                      <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'end', flex: 1}}>
-                          <Text style={{fontSize: 14, color: '#252525',fontWeight: 500}}>{item.createdAt.split("T")[0]}</Text>
-                      </View>
-                      <View style={{flexDirection: 'row', flex: 1}} >
-                        <Pressable style={{borderColor: '#d9d9d9', borderWidth: 1, padding: 8, marginVertical: 10, flexDirection: 'column', alignItems: 'center', flex: 1}} 
-                          onPress={()=>downloadAndSharePDF(item)}
-                        >
-                          <FeatherIcons name='printer' size={20} color='#252525' style={{textAlign: 'center'}} />
-                          <Text style={{fontSize: 14, color: '#252525',fontWeight: 500}}>Generar pdf</Text>
-                        </Pressable>
-                        <Pressable style={{borderColor: '#d9d9d9', borderWidth: 1, padding: 8, marginVertical: 10, flexDirection: 'column', alignItems: 'center', flex: 1}} 
-                          onPress={()=>generatePdf(item._id)}
-                        >
-                          <FeatherIcons name='printer' size={20} color='#252525' style={{textAlign: 'center'}} />
-                          <Text style={{fontSize: 14, color: '#252525',fontWeight: 500}}>Generar ticket</Text>
-                        </Pressable>
-                      </View>
-                  </Pressable>
-              )
-            }}
-            keyExtractor={(item) => item._id}
-            onEndReached={()=>{
-              console.log('estoy en el final')
-              if(!loading.open){
-                if(search){
-                  if(search.value === '' ){
-                    dispatch(setLoading({
-                        message: `Cargando nuevas ventas`
-                    }))
-                    setQuery({skip: query.skip+15, limit: query.limit})
+          :
+          <View>
+            <Search placeholder={'Buscar ventas'} searchInput={search} />
+            <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15}} >
+              <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={()=>{navigation.navigate('NewSale')}} />
+            </View>
+            <Text style={{fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
+            <FlatList 
+              style={{height: '83%'}}
+              data={data}
+              renderItem={({ item }) =>{
+                return (
+                    <Pressable style={styles.item} onPress={()=>{
+                        navigation.navigate('DetailsSale', {
+                          id: item._id,
+                          name: item.cliente,
+                        })
+                    }}>
+                        <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'space-between', flex: 1}}>
+                            <Text style={{fontSize: 18, color: '#252525'}}>{item.cliente}</Text>
+                            <Text style={{fontSize: 18, fontWeight: 600, color: '#FA9B50'}}>$ {item.total}</Text>
+                        </View>
+                        <View style={{display: 'flex', flexDirection: 'row', justifyContent: 'end', flex: 1}}>
+                            <Text style={{fontSize: 14, color: '#252525',fontWeight: 500}}>{item.createdAt.split("T")[0]}</Text>
+                        </View>
+                        <View style={{flexDirection: 'row', flex: 1}} >
+                          <Pressable style={{borderColor: '#d9d9d9', borderWidth: 1, padding: 8, marginVertical: 10, flexDirection: 'column', alignItems: 'center', flex: 1}} 
+                            onPress={()=>downloadAndSharePDF(item)}
+                          >
+                            <FeatherIcons name='printer' size={20} color='#252525' style={{textAlign: 'center'}} />
+                            <Text style={{fontSize: 14, color: '#252525',fontWeight: 500}}>Generar pdf</Text>
+                          </Pressable>
+                          <Pressable style={{borderColor: '#d9d9d9', borderWidth: 1, padding: 8, marginVertical: 10, flexDirection: 'column', alignItems: 'center', flex: 1}} 
+                            onPress={()=>generatePdf(item._id)}
+                          >
+                            <FeatherIcons name='printer' size={20} color='#252525' style={{textAlign: 'center'}} />
+                            <Text style={{fontSize: 14, color: '#252525',fontWeight: 500}}>Generar ticket</Text>
+                          </Pressable>
+                        </View>
+                    </Pressable>
+                )
+              }}
+              keyExtractor={(item) => item._id}
+              onEndReached={()=>{
+                console.log('estoy en el final')
+                if(!loading.open){
+                  if(search){
+                    if(search.value === '' ){
+                      dispatch(setLoading({
+                          message: `Cargando nuevas ventas`
+                      }))
+                      setQuery({skip: query.skip+15, limit: query.limit})
+                    }
                   }
                 }
-              }
-            }}
-          />
-        </View>:
+              }}
+            />
+          </View>:
         <View>
           <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15}} >
             <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={()=>{navigation.navigate('NewSale')}} />
