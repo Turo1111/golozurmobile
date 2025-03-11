@@ -29,7 +29,6 @@ export default function DetailsSale({ route, navigation }) {
         },
     })
     .then(response=>{
-      console.log("res",response.data)
       setDetails(response.data)
       dispatch(clearLoading())
     })
@@ -43,116 +42,9 @@ export default function DetailsSale({ route, navigation }) {
     getDetails()
   }, [user, userStorage])
 
-  const generatePdf = async () => {
-    const itemsText = details.itemsSale.map(item => `
-      <div class="it">
-        <p class="it">${(item.descripcion).toUpperCase()}</p>
-        <div class="itemList">
-          <div class="flex" >
-            <p class="it">${item.cantidad}x</p>
-            <p class="it">$${(item.precioUnitario).toLocaleString('es-ES')}</p>
-          </div>
-          <p class="it">$${(item.total).toLocaleString('es-ES')}</p>
-        </div>
-      </div>
-    `).join('');
-  
-    const htmlContent = `
-      <html>
-        <head>
-          <style>
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              font-size: 15px;
-              margin: 0;
-              padding: 0;
-            }
-            .header {
-              margin-left: 5px;
-              padding: 0;
-            }
-            .header h2 {
-              text-align: center;
-              padding: 0;
-              margin-bottom: 5px;
-              font-size: 15px;
-            }
-            .header p {
-              padding: 0;
-              margin: 0;
-              margin-bottom: 2px;
-              font-size: 15px;
-            }
-            .details {
-              margin: 0;
-              font-size: 15px;
-              padding: 0;
-            }
-            .flex {
-              display: flex;
-              margin: 0;
-              padding: 0;
-            }
-            .itemList{
-              display: flex;
-              padding: 0px 3px;
-              margin: 0;
-              padding: 0;
-              justify-content: space-between;
-            }
-            .it{
-              margin: 0;
-              padding: 0;
-            }
-            .total {
-              margin: 0;
-              font-weight: bold;
-              text-align: right;
-              font-size: 18px;
-              padding: 0;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h2>GOLOZUR</h2>
-            <p>Fecha: ${details.r.createdAt.split("T")[0]}</p>
-            <p>Cliente: ${details.r.cliente}</p>
-            <p>*NO VALIDO COMO FACTURA</p>
-          </div>
-          <hr/>
-          <div class="details">
-            ${itemsText}
-          </div>
-          <hr/>
-          <div class="total">
-            <p>Total Neto $ ${(details.r.total).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          </div>
-        </body>
-      </html>
-    `;
-  
-    try {
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-        width: 200,  // 57 mm en puntos
-        height: 192.85
-      });
-  
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(uri);
-      } else {
-        console.log('Compartir no disponible en este dispositivo');
-      }
-    } catch (error) {
-      console.error('Error generando el PDF:', error);
-    }
-  };
 
   return (
     <View style={{padding: 5}}>
-    <Button text={'Imprimir ticket'} onPress={generatePdf} />
     {
       details && 
       <>
