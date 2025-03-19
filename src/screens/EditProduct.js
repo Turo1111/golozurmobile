@@ -18,12 +18,13 @@ export default function EditProduct({ route, navigation}) {
     const {data: userStorage} = useLocalStorage([],'user')
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
-    console.log(details)
 
     const formik = useFormik({
         initialValues: initialValues(details),
         validateOnChange: false,
         onSubmit: (formValue) => {
+          /* console.log("formvalue",formValue)
+          return */
           if (formValue.descripcion === '' || formValue.stock <= 0 || formValue.precioUnitario <= 0){
             dispatch(setAlert({
               message: `Falta descripcion o stock o precio unitario `,
@@ -66,7 +67,7 @@ export default function EditProduct({ route, navigation}) {
     })
 
     useEffect(()=>{
-      const socket = io('https://gzapi.vercel.app')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`/product`, (socket) => {
         console.log("socket", socket)
         setDetails((prevData)=>{
@@ -152,6 +153,11 @@ export default function EditProduct({ route, navigation}) {
                     value={formik.values.precioUnitario}
                     onChangeText={(text)=> formik.setFieldValue('precioUnitario', text)}
                 />
+                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Precio descuento</Text>
+                <TextInput placeholder={'Precio descuento'} style={styles.input}
+                    value={formik.values.precioDescuento}
+                    onChangeText={(text)=> formik.setFieldValue('precioDescuento', text)}
+                />
             </View>
         </ScrollView>
         <View style={{flexDirection: 'row', justifyContent: 'space-around', marginVertical: 15}}>
@@ -196,6 +202,7 @@ function initialValues(item) {
         sabor: item?.sabor || '',
         precioBulto: item?.precioBulto !== undefined ? (item?.precioBulto)?.toString() : 0,
         precioCompra: item?.precioCompra !== undefined ? (item?.precioCompra)?.toString() : 0,
-        precioUnitario: item?.precioUnitario !== undefined ?  (item?.precioUnitario)?.toString() : 0
+        precioUnitario: item?.precioUnitario !== undefined ?  (item?.precioUnitario)?.toString() : 0,
+        precioDescuento: item?.precioDescuento !== undefined ?  (item?.precioDescuento)?.toString() : 0
     }
 }

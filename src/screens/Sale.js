@@ -113,7 +113,7 @@ export default function Sale({navigation}) {
     },[query, offlineStorage])
 
     useEffect(()=>{
-      const socket = io('https://gzapi.vercel.app')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`sale`, (socket) => {
         console.log('escucho', socket)
         setData((prevData)=>{

@@ -1,4 +1,4 @@
-import { BackHandler, Image, StyleSheet, Text, View } from 'react-native'
+import { BackHandler, Image, ScrollView, StyleSheet, Text, View } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { getUser } from '../redux/userSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
@@ -40,7 +40,7 @@ export default function DetailsProduct({ route, navigation }) {
   const uploadImage = async (uri) => {
     try {
       let filename = ''
-      await FileSystem.uploadAsync('https://gzapi.vercel.app/product/uploadImage', uri, {
+      await FileSystem.uploadAsync('http://10.0.2.2:3002/product/uploadImage', uri, {
         fieldName: 'myfile',
         httpMethod: 'POST',
         uploadType: FileSystem.FileSystemUploadType.MULTIPART,
@@ -132,7 +132,7 @@ export default function DetailsProduct({ route, navigation }) {
   }, [details])
 
   useEffect(()=>{
-    const socket = io('https://gzapi.vercel.app')
+    const socket = io('http://10.0.2.2:3002')
     socket.on(`product`, (socket) => {
       console.log("socket", socket)
       setDetails((prevData)=>{
@@ -151,12 +151,12 @@ export default function DetailsProduct({ route, navigation }) {
 
   return (
     <View style={{padding: 15}}>
-      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 5, padding: 15, shadowColor: "#000"}} >
+      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 5, padding: 5, shadowColor: "#000"}} >
         {/* {
           !imageFile ? 
           <Image source={image ? { uri: image } : require('../../assets/icon.png')} style={{width: 150, height: 180, borderRadius: 15}} />
           : */}
-          <Image source={{uri:'https://i.imgur.com/weueadv.jpg'}} style={{width: 150, height: 180, borderRadius: 15}} />
+          <Image source={{uri:'https://i.imgur.com/weueadv.jpg'}} style={{width: 150, height: 150, borderRadius: 15}} />
         {/* } */}
       </View>
       <View style={{paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginVertical: 10}} >
@@ -166,17 +166,20 @@ export default function DetailsProduct({ route, navigation }) {
         })} />
         <Button text={'Elegir imagen'} fontSize={14} width={'45%'} onPress={pickImage} />
       </View>
-      <Text style={{color: '#252525', fontSize: 18, fontFamily: 'Cairo-Bold', marginVertical: 5}}>Descripcion: {details?.descripcion || 'No definido'}</Text>
-      <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Stock: {details?.stock || 'No definido'}</Text>
-      <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Categoria: {details?.NameCategoria || 'No definido'}</Text>
-      <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Marca: {details?.NameMarca || 'No definido'}</Text>
-      <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Proveedor: {details?.NameProveedor || 'No definido'}</Text>
-      <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Codigo de barra: {details?.codigoBarra || 'Sin codigo'}</Text>
-      <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Peso: {details?.peso?.cantidad || 'No definido'} {details?.peso?.unidad}</Text>
-      <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Bulto: {details?.bulto || 'No definido'}</Text>
-      <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Precio por Bulto: {details?.precioBulto || 'No definido'}</Text>
-      <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Precio de compra: {details?.precioCompra || 'No definido'}</Text>
-      <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Precio unitario: {details?.precioUnitario || 'No definido'}</Text>
+      <ScrollView style={{maxHeight: '70%'}}>
+        <Text style={{color: '#252525', fontSize: 18, fontFamily: 'Cairo-Bold', marginVertical: 5}}>Descripcion: {details?.descripcion || 'No definido'}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Stock: {details?.stock || 'No definido'}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Categoria: {details?.NameCategoria || 'No definido'}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Marca: {details?.NameMarca || 'No definido'}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Proveedor: {details?.NameProveedor || 'No definido'}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Codigo de barra: {details?.codigoBarra || 'Sin codigo'}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Peso: {details?.peso?.cantidad || 'No definido'} {details?.peso?.unidad}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Bulto: {details?.bulto || 'No definido'}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Precio por Bulto: $ {details?.precioBulto || 'No definido'}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Precio de compra: $ {details?.precioCompra || 'No definido'}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Precio unitario: $ {details?.precioUnitario || 'No definido'}</Text>
+        <Text style={{color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5}}>Precio Descuento: $ {details?.precioDescuento || 'No definido'}</Text>
+      </ScrollView>
     </View>
   )
 }

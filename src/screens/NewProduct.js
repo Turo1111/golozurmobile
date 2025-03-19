@@ -32,7 +32,8 @@ export default function NewProduct({navigation}) {
             bulto: 0,
             precioBulto: 0,
             precioCompra: 0,
-            precioUnitario: 0
+            precioUnitario: 0,
+            precioDescuento: 0
         },
         validateOnChange: false,
         onSubmit: async (formValue) => {
@@ -103,6 +104,16 @@ export default function NewProduct({navigation}) {
                     onChangeText={(text)=> {
                       if (!isNaN(text)) { 
                         formik.setFieldValue('precioUnitario', text)
+                      } 
+                    }}
+                    inputMode='numeric'
+                />
+                <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginTop: 5}}>Precio descuento</Text>
+                <TextInput placeholder={'Precio descuento'} style={styles.input}
+                    value={formik.values.precioDescuento}
+                    onChangeText={(text)=> {
+                      if (!isNaN(text)) { 
+                        formik.setFieldValue('precioDescuento', text)
                       } 
                     }}
                     inputMode='numeric'

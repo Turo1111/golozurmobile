@@ -127,7 +127,7 @@ export default function NewSale({navigation}) {
     },[search.value , activeBrand, activeCategorie, activeProvider])
 
     useEffect(()=>{
-      const socket = io('https://gzapi.vercel.app')
+      const socket = io('http://10.0.2.2:3002')
       socket.on(`/product`, (socket) => {
         console.log("escucho socket",socket);
         refreshProducts()
@@ -397,7 +397,7 @@ export default function NewSale({navigation}) {
   };
 
   useEffect(()=>{
-    const socket = io('https://gzapi.vercel.app')
+    const socket = io('http://10.0.2.2:3002')
     socket.on(`/sale`, (socket) => {
     })
     return () => {
