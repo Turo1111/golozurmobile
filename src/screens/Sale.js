@@ -113,7 +113,7 @@ export default function Sale({navigation}) {
     },[query, offlineStorage])
 
     useEffect(()=>{
-      const socket = io('http://10.0.2.2:3002')
+      const socket = io('http://10.0.2.2:5000')
       socket.on(`sale`, (socket) => {
         console.log('escucho', socket)
         setData((prevData)=>{
@@ -200,7 +200,7 @@ export default function Sale({navigation}) {
         });
       }
     
-      console.log(details);
+      /* console.log(details.itemsSale); */
     
       if (!details) {
         dispatch(setAlert({
@@ -219,15 +219,18 @@ export default function Sale({navigation}) {
       };
     
       const itemsChunks = chunkArray(details.itemsSale, 15);
+
+      console.log("items", details.itemsSale)
     
       const generateHtmlContent = (items, chunkIndex, totalChunks) => {
-        const itemsText = items.map(item => `
+        const itemsText = items.map(item => 
+          `
           <div class="it">
             <p class="it">${(item.descripcion).toUpperCase()}</p>
             <div class="itemList">
               <div class="flex">
                 <p class="it">${item.cantidad}x</p>
-                <p class="it">$${(item.precio || item.precioUnitario).toString().toLocaleString('es-ES')}</p>
+                <p class="it">$${(item.precio || item.precioUnitario || 'error').toString().toLocaleString('es-ES')}</p>
               </div>
               <p class="it">$${(item.total).toString().toLocaleString('es-ES')}</p>
             </div>
@@ -462,3 +465,4 @@ const styles = StyleSheet.create({
         borderColor: '#ddd',
     },
 })
+

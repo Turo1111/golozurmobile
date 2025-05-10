@@ -10,7 +10,7 @@ export default function ModalContainer({children, openModal, width, height, titl
     visible={openModal}
     onRequestClose={onClose}
     >
-        <View style={{width: '100%', height: '100%', backgroundColor: 'rgba(217,217,217,0.7)'}}>
+        <View style={{width: '100%', height: '100%', backgroundColor: 'rgba(217,217,217,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center'}}>
             <View style={[styles.modalView, { width: width ? width : '95%', height: height ? height : '50%' }]} >
                 {
                     header && 
@@ -29,7 +29,7 @@ export default function ModalContainer({children, openModal, width, height, titl
 const styles = StyleSheet.create({
     modalView: {
         marginHorizontal: 10,
-        marginTop: '50%',
+        marginTop: '10%',
         margin: 1,
         backgroundColor: "white",
         borderRadius: 15,
@@ -42,5 +42,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
+        maxHeight: '85%'
     },
 })
