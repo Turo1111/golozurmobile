@@ -9,8 +9,8 @@ TaskManager.defineTask('PRODUCT_FETCH_TASK', async () => {
     const now = Date.now();
 
     axios.get('http://10.0.2.2:5000/product/active')
-    .then(async(r)=>{})
-    .catch(async(e)=>{})
+      .then(async (r) => { })
+      .catch(async (e) => { })
 
     return BackgroundFetch.BackgroundFetchResult.NewData;
   } catch (error) {

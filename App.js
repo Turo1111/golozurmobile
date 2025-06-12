@@ -21,14 +21,14 @@ export default function App() {
 
   useEffect(() => {
     registerBackgroundFetch();
-  
+
     const askNotificationPermission = async () => {
       const { status } = await Notifications.requestPermissionsAsync();
       if (status !== 'granted') {
         console.log('Permisos para notificaciones no concedidos');
       }
     };
-  
+
     askNotificationPermission();
   }, []);
 
