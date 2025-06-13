@@ -60,7 +60,6 @@ export default function PrintProduct({ open, onClose }) {
       dispatch(setLoading(true));
       apiClient.get(`/categorie`)
         .then(function (response) {
-          console.log('categorie', response.data)
           setCategorie(prevData => [{
             _id: 0,
             descripcion: 'Todas'
@@ -259,7 +258,6 @@ export default function PrintProduct({ open, onClose }) {
                     </Text>
                   ) : (
                     categorie.map((item, index) => {
-                      console.log('item', item)
                       let isActive = selectCategorie.find(elem => elem._id === item._id) ? true : false
                       return <Text
                         key={index} style={[styles.item, {
@@ -268,7 +266,6 @@ export default function PrintProduct({ open, onClose }) {
                         }]}
                         onPress={() => {
                           setSelectCategorie((prevData) => {
-                            console.log(item)
                             if (item._id !== 0) {
                               let clearPrev = prevData.filter((itemPrev) => itemPrev._id === item._id)
                               return [...clearPrev, item]

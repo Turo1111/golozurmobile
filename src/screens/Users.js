@@ -46,11 +46,8 @@ export default function Users({ navigation }) {
     const [dataSearch, setDataSearch] = useState([])
     const [query, setQuery] = useState({ skip: 0, limit: 15 })
     const isConnected = useInternetStatus();
-    const { data: userLocalStorage } = useLocalStorage([], 'userStorage')
     const search = useInputValue('', '')
-    const filteredArray = useFilteredArray(userLocalStorage, search.value);
     const { offline } = useContext(OfflineContext)
-    const { data: offlineStorage } = useLocalStorage(true, 'offlineStorage')
 
     const getUsers = (skip, limit) => {
         dispatch(setLoading({
@@ -101,13 +98,13 @@ export default function Users({ navigation }) {
     }
 
     useEffect(() => {
-        if (!offlineStorage) {
+        if (!offline) {
             getUsers(query.skip, query.limit)
         }
-    }, [query, offlineStorage, user.token, userStorage.token])
+    }, [query, offline, user.token, userStorage.token])
 
     useEffect(() => {
-        if (search && !offlineStorage) {
+        if (search && !offline) {
             getUsersSearch(search.value)
         }
     }, [search.value])
@@ -134,7 +131,7 @@ export default function Users({ navigation }) {
 
     const refreshUsers = () => {
         search.clearValue()
-        if (!offlineStorage) {
+        if (!offline) {
             getUsers(query.skip, query.limit)
         }
     };
@@ -150,7 +147,7 @@ export default function Users({ navigation }) {
     return (
         <View>
             {
-                !offlineStorage ?
+                !offline ?
                     <View>
                         <Search placeholder={'Buscar usuario'} searchInput={search} />
                         <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: 15 }} >

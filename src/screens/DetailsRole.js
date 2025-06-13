@@ -41,17 +41,12 @@ export default function DetailsRole({ route, navigation }) {
             message: 'Cargando detalles del rol'
         }))
 
-        console.log("user", user)
-        console.log("userStorage", userStorage)
-        console.log("id", id)
-
         apiClient.get(`/role/${id}`, {
             headers: {
                 Authorization: `Bearer ${user.token || userStorage.token}`
             },
         })
             .then(response => {
-                console.log("response", response.data)
                 setRole(response.data)
                 dispatch(clearLoading())
             })

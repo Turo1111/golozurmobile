@@ -8,28 +8,31 @@ import { getUser } from '../redux/userSlice';
 import { clearLoading, setLoading } from '../redux/loadingSlice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ToggleButton = ({onPress}) => {
+const ToggleButton = () => {
   const animation = useRef(new Animated.Value(2)).current;  // Valor inicial de 'left'
-  
-  const {data: productStorage, saveData: setProductStorage} = useLocalStorage([],'productStorage')
+
   const dispatch = useAppDispatch();
-  const {data: saleStorage, clearData: clearDataSaleStorage} = useLocalStorage([],'saleStorage')
-  const user = useAppSelector(getUser) 
-  const {data: userStorage} = useLocalStorage([],'user')
-  const [isSaleStorage, setIsSaleStorage] = useState(false)
-  const {data: offlineStorage, saveData: setOfflineStorage} = useLocalStorage(true,'offlineStorage')
+  const user = useAppSelector(getUser)
+  const { data: userStorage } = useLocalStorage([], 'user')
+  const { offline, setModeOffline } = useContext(OfflineContext)
+
+  //const [isSaleStorage, setIsSaleStorage] = useState(false)
+  //const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
+  //const { data: saleStorage, clearData: clearDataSaleStorage } = useLocalStorage([], 'saleStorage')
+  //const { data: productStorage, saveData: setProductStorage } = useLocalStorage([], 'productStorage')
 
   const toggleCheck = async () => {
-    /* setIsChecked(!isChecked); */
-    /* onPress() */
-    setOfflineStorage(!offlineStorage)
+
+    //setOfflineStorage(!offlineStorage)
     Animated.timing(animation, {
-      toValue: offlineStorage ? 2 : 58,  // Cambia el valor de 'left'
+      toValue: offline ? 2 : 58,  // Cambia el valor de 'left'
       duration: 300,
       useNativeDriver: false,
     }).start();
-    if (offlineStorage) {
-      console.log('paso a conexion y guardo ventas')
+
+    await setModeOffline()
+
+    /* if (offlineStorage) {
       const saleStorage = await AsyncStorage.getItem('saleStorage');
       let parsedSaleStorage = [];
       if (saleStorage) {
@@ -37,36 +40,34 @@ const ToggleButton = ({onPress}) => {
         dispatch(setLoading({
           message: `Guardando ventas`
         }))
-        apiClient.post('/sale/multiple', parsedSaleStorage,{
+        apiClient.post('/sale/multiple', parsedSaleStorage, {
           headers: {
-            Authorization: `Bearer ${user.token || userStorage.token}` 
+            Authorization: `Bearer ${user.token || userStorage.token}`
           }
         })
-        .then((r)=>{
-          setIsSaleStorage(false)
-          clearDataSaleStorage()
-          dispatch(clearLoading())
-        })
-        .catch((e)=>{console.log(e);dispatch(clearLoading())})
-      } 
-      return  
+          .then((r) => {
+            setIsSaleStorage(false)
+            clearDataSaleStorage()
+            dispatch(clearLoading())
+          })
+          .catch((e) => { console.log(e); dispatch(clearLoading()) })
+      }
+      return
     }
-    console.log('paso a sin conexion y traigo productos')
     const now = Date.now();
     dispatch(setLoading({
       message: `Actualizando productos`
     }))
     apiClient.get('/product')
-    .then(r=>{
-      setProductStorage(r.data)
-      console.log('actualizando productos')
-      dispatch(clearLoading())
-    })
-    .catch(e=>{console.log(e);dispatch(clearLoading())})
+      .then(r => {
+        setProductStorage(r.data)
+        dispatch(clearLoading())
+      })
+      .catch(e => { console.log(e); dispatch(clearLoading()) }) */
   };
 
-  useEffect(()=>{
-    if (offlineStorage) {
+  useEffect(() => {
+    if (offline) {
       Animated.timing(animation, {
         toValue: 58,  // Cambia el valor de 'left'
         duration: 300,
@@ -80,17 +81,17 @@ const ToggleButton = ({onPress}) => {
       useNativeDriver: false,
     }).start();
     return
-  },[offlineStorage])
+  }, [offline])
 
   return (
     <View style={styles.toggleButtonCover}>
-      <TouchableOpacity style={[styles.button,{ backgroundColor: `${offlineStorage ? '#FF6868' : '#A1DD70'}`}]} onPress={toggleCheck}>
-        <Animated.View style={[styles.knobs, { left: animation, backgroundColor: `${offlineStorage ? '#FF6868' : '#A1DD70'}` }]}>
+      <TouchableOpacity style={[styles.button, { backgroundColor: `${offline ? '#FF6868' : '#A1DD70'}` }]} onPress={toggleCheck}>
+        <Animated.View style={[styles.knobs, { left: animation, backgroundColor: `${offline ? '#FF6868' : '#A1DD70'}` }]}>
           <Text style={styles.knobText}>
-            {offlineStorage ? 'SIN CONEXION' : 'CON CONEXION'} {/* verdadero cuando esta sin conexion y falso con conexion */}
+            {offline ? 'SIN CONEXION' : 'CON CONEXION'} {/* verdadero cuando esta sin conexion y falso con conexion */}
           </Text>
         </Animated.View>
-        <View style={[styles.layer, offlineStorage && styles.layerChecked]} />
+        <View style={[styles.layer, offline && styles.layerChecked]} />
       </TouchableOpacity>
     </View>
   );

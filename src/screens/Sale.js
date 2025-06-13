@@ -33,13 +33,10 @@ export default function Sale({ navigation }) {
   const [data, setData] = useState([])
   const search = useInputValue('', '')
   const [dataSearch, setDataSearch] = useState([])
-  const { data: saleStorage, clearData: clearDataSaleStorage } = useLocalStorage([], 'saleStorage')
-  const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
   const [error, setError] = useState(false)
-
   const [query, setQuery] = useState({ skip: 0, limit: 25 })
 
-  const { offline } = useContext(OfflineContext)
+  const { offline, sales } = useContext(OfflineContext)
 
   const getSale = async (skip, limit) => {
     dispatch(setLoading({
@@ -87,6 +84,10 @@ export default function Sale({ navigation }) {
     }
   }
 
+
+  useEffect(() => {
+  }, [navigation.isFocused()])
+
   useEffect(() => {
     let timeoutId;
 
@@ -104,15 +105,14 @@ export default function Sale({ navigation }) {
   }, [search.value]);
 
   useEffect(() => {
-    if (user && !offlineStorage) {
+    if (user && !offline) {
       getSale(query.skip, query.limit)
     }
-  }, [query, offlineStorage])
+  }, [query, offline])
 
   useEffect(() => {
     const socket = io('http://10.0.2.2:5000')
     socket.on(`sale`, (socket) => {
-      console.log('escucho', socket)
       setData((prevData) => {
         return [socket.data, ...prevData]
       })
@@ -161,7 +161,7 @@ export default function Sale({ navigation }) {
 
   const generatePdf = async (cliente) => {
     let details = undefined;
-    if (offlineStorage) {
+    if (offline) {
       try {
         const jsonValue = await AsyncStorage.getItem('saleStorage');
         if (jsonValue !== null) {
@@ -332,7 +332,7 @@ export default function Sale({ navigation }) {
   return (
     <View>
       {
-        !offlineStorage ?
+        !offline ?
           error ?
             <View style={{ height: '100%', width: '100%', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} >
               <Text style={{ fontSize: 22, fontFamily: 'Cairo-Regular', paddingHorizontal: 15, textAlign: 'center', marginBottom: 25 }} >"Ocurrio un error a traer los datos, compruebe su conexion si no es lento"</Text>
@@ -353,7 +353,7 @@ export default function Sale({ navigation }) {
                 data={data}
                 renderItem={({ item }) => {
                   return (
-                    <Pressable style={styles.item} onPress={() => {
+                    <Pressable style={styles.item} key={item._id} onPress={() => {
                       navigation.navigate('DetailsSale', {
                         id: item._id,
                         name: item.cliente,
@@ -405,10 +405,10 @@ export default function Sale({ navigation }) {
             <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#C7253E', paddingHorizontal: 15 }} >Estas en modo sin conexion</Text>
             <FlatList
               style={{ height: '83%' }}
-              data={saleStorage}
+              data={[...sales].reverse()}
               renderItem={({ item, index }) => {
                 return (
-                  <Pressable style={styles.item} key={index} onPress={() => {
+                  <Pressable style={styles.item} key={Math.random()} onPress={() => {
 
                   }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>

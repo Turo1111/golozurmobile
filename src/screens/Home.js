@@ -14,8 +14,7 @@ export default function Home({ navigation }) {
   const user = useAppSelector(getUser);
   const dispatch = useAppDispatch();
   const { data: userLocalStorage, clearData } = useLocalStorage([], 'user')
-  const { data: saleStorage, clearData: clearDataSaleStorage } = useLocalStorage([], 'saleStorage')
-  const { offline, setModeOffline, isSaleStorage, correctMode } = useContext(OfflineContext)
+  const { offline } = useContext(OfflineContext)
 
   const logOut = async () => {
     try {
@@ -37,16 +36,14 @@ export default function Home({ navigation }) {
         </Pressable>
       </View>
       <View style={{ flexDirection: 'row', paddingHorizontal: 15, justifyContent: 'center', alignItems: 'center' }}>
-        <ToggleButton onPress={async () => {
-          setModeOffline()
-        }} />
+        <ToggleButton />
       </View>
-      {
-        saleStorage?.length !== 0 &&
+      {/* {
+        (isSaleStorage) &&
         <View style={{ flexDirection: 'row', paddingHorizontal: 15, justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#252525' }} >Hay ventas sin guardar</Text>
         </View>
-      }
+      } */}
       <Pressable style={{ borderColor: '#d9d9d9', borderWidth: 1, padding: 8, width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginVertical: 10 }}
         onPress={() => navigation.navigate('Product')}
       >

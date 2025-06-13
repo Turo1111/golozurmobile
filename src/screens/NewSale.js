@@ -62,22 +62,24 @@ export default function NewSale({ navigation }) {
   const [openBS, setOpenBS] = useState(false)
   const [lineaVenta, setLineaVenta] = useState([])
   const [total, setTotal] = useState(0)
-  const { data: saleStorage, saveData: setSaleStorage } = useLocalStorage([], 'saleStorage')
+  //const { data: saleStorage, saveData: setSaleStorage } = useLocalStorage([], 'saleStorage')
   const [selectProduct, setSelectProduct] = useState(undefined)
   const [openAddProduct, setOpenAddProduct] = useState(false)
   const [openAlertPost, setOpenAlertPost] = useState(false)
   const today = new Date()
-  const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
+  //const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
+  const { createSale } = useContext(OfflineContext)
 
   const cliente = useInputValue('', '')
   const search = useInputValue('', '')
   const porcentaje = useInputValue('0', 'number')
 
-  const { offline, trueSaleStorage } = useContext(OfflineContext)
+  const { offline } = useContext(OfflineContext)
 
   const { data: productLocalStorage } = useLocalStorage([], 'productStorage')
 
   const filteredArray = useFilteredArray(productLocalStorage, search.value);
+
 
   const getProduct = (skip, limit) => {
     apiClient.post(`/product/skip`, { skip, limit },
@@ -95,7 +97,6 @@ export default function NewSale({ navigation }) {
             const newData = response.data.array.filter((element) => {
               return prevData.findIndex((item) => item._id === element._id) === -1;
             });
-            /* console.log([...prevData, ...newData]); */
             return [...prevData, ...newData];
           }
           return []
@@ -115,10 +116,10 @@ export default function NewSale({ navigation }) {
   }
 
   useEffect(() => {
-    if (!offlineStorage) {
+    if (!offline) {
       getProduct(query.skip, query.limit)
     }
-  }, [query, offlineStorage])
+  }, [query, offline])
 
   useEffect(() => {
     if (search) {
@@ -129,7 +130,6 @@ export default function NewSale({ navigation }) {
   useEffect(() => {
     const socket = io('http://10.0.2.2:5000')
     socket.on(`/product`, (socket) => {
-      console.log("escucho socket", socket);
       refreshProducts()
     })
     return () => {
@@ -151,7 +151,6 @@ export default function NewSale({ navigation }) {
   }, [navigation]);
 
   useEffect(() => {
-    console.log(lineaVenta)
     const sumWithInitial = lineaVenta.reduce(
       (accumulator, currentValue) => {
         let suma = parseFloat(accumulator) + parseFloat(currentValue.total)
@@ -185,8 +184,7 @@ export default function NewSale({ navigation }) {
   const postOffline = async () => {
     let today = new Date()
     let formatToday = today.toISOString()
-    await setSaleStorage([...saleStorage, { createdAt: formatToday, itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value }])
-    trueSaleStorage()
+    createSale({ createdAt: formatToday, itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value })
     setOpenAlertPost(true)
   }
 
@@ -205,12 +203,12 @@ export default function NewSale({ navigation }) {
       }))
       return
     }
-    if (offlineStorage) {
+    if (offline) {
       postOffline()
       return
     }
     dispatch(setLoading({
-      message: `dproductos`
+      message: `Guardando productos`
     }))
     apiClient.post('/sale', { itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value }, {
       headers: {
@@ -226,7 +224,7 @@ export default function NewSale({ navigation }) {
 
   const generatePdf = async (cliente) => {
     let details = undefined;
-    if (offlineStorage) {
+    if (offline) {
       try {
         const jsonValue = await AsyncStorage.getItem('saleStorage');
         if (jsonValue !== null) {
@@ -246,7 +244,6 @@ export default function NewSale({ navigation }) {
         },
       })
         .then(r => {
-          console.log(r.data);
           details = {
             itemsSale: r.data.itemsSale,
             cliente: r.data.r.cliente,
@@ -261,8 +258,6 @@ export default function NewSale({ navigation }) {
           }));
         });
     }
-
-    console.log(details);
 
     if (!details) {
       dispatch(setAlert({
@@ -407,12 +402,12 @@ export default function NewSale({ navigation }) {
 
   return (
     <SafeAreaView style={styles.content}  >
-      <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={() => { !offlineStorage && setOpenFilter(true) }} />
-      <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: `${offlineStorage ? '#C7253E' : '#799351'}`, paddingHorizontal: 15 }} >{offlineStorage ? 'Estas en modo sin conexion' : 'Estas en modo con conexion'}</Text>
+      <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={() => { !offline && setOpenFilter(true) }} />
+      <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: `${offline ? '#C7253E' : '#799351'}`, paddingHorizontal: 15 }} >{offline ? 'Estas en modo sin conexion' : 'Estas en modo con conexion'}</Text>
       <FlatList
         style={{ height: '83%' }}
         data={
-          offlineStorage ? filteredArray :
+          offline ? filteredArray :
             (search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ?
               dataSearch :
               data)
@@ -420,7 +415,6 @@ export default function NewSale({ navigation }) {
         renderItem={({ item }) => renderItem({ item, navigation, addSelectProduct })}
         keyExtractor={(item) => item._id}
         onEndReached={() => {
-          console.log('estoy en el final')
           if (!loading.open) {
             if (search) {
               if (search.value === '') {

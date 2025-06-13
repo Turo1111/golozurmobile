@@ -59,9 +59,7 @@ export default function Product({ navigation }) {
   const fechaHoy = new Date()
   const [openPrint, setOpenPrint] = useState(false)
 
-  const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
-
-  console.log(fechaHoy)
+  //const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
 
   const search = useInputValue('', '')
 
@@ -80,7 +78,6 @@ export default function Product({ navigation }) {
         },
       })
       .then(response => {
-        console.log('response', response.data)
         setData((prevData) => {
           if (prevData) {
             if (prevData.length === 0) {
@@ -115,13 +112,13 @@ export default function Product({ navigation }) {
   }
 
   useEffect(() => {
-    if (!offlineStorage) {
+    if (!offline) {
       getProduct(query.skip, query.limit)
     }
-  }, [query, offlineStorage])
+  }, [query, offline])
 
   useEffect(() => {
-    if (search && !offlineStorage) {
+    if (search && !offline) {
       getProductSearch(search.value, activeCategorie._id, activeBrand._id, activeProvider._id)
     }
   }, [search.value, activeBrand, activeCategorie, activeProvider])
@@ -147,7 +144,7 @@ export default function Product({ navigation }) {
 
   const refreshProducts = () => {
     search.clearValue()
-    if (!offlineStorage) {
+    if (!offline) {
       getProduct(query.skip, query.limit)
     }
   };
@@ -163,7 +160,7 @@ export default function Product({ navigation }) {
   return (
     <View>
       {
-        !offlineStorage ?
+        !offline ?
           <View>
             <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={() => setOpenFilter(true)} />
             <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15 }} >

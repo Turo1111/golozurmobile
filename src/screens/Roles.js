@@ -44,11 +44,8 @@ export default function Roles({ navigation }) {
     const [dataSearch, setDataSearch] = useState([])
     const [query, setQuery] = useState({ skip: 0, limit: 15 })
     const isConnected = useInternetStatus();
-    const { data: roleLocalStorage } = useLocalStorage([], 'roleStorage')
     const search = useInputValue('', '')
-    const filteredArray = useFilteredArray(roleLocalStorage, search.value);
     const { offline } = useContext(OfflineContext)
-    const { data: offlineStorage } = useLocalStorage(true, 'offlineStorage')
 
     const getRoles = (skip, limit) => {
         dispatch(setLoading({
@@ -99,13 +96,13 @@ export default function Roles({ navigation }) {
     }
 
     useEffect(() => {
-        if (!offlineStorage) {
+        if (!offline) {
             getRoles(query.skip, query.limit)
         }
-    }, [query, offlineStorage, user.token, userStorage.token])
+    }, [query, offline, user.token, userStorage.token])
 
     useEffect(() => {
-        if (search && !offlineStorage) {
+        if (search) {
             getRolesSearch(search.value)
         }
     }, [search.value])
@@ -113,10 +110,8 @@ export default function Roles({ navigation }) {
     useEffect(() => {
         const socket = io('http://10.0.2.2:5000')
         socket.on(`role`, (socketData) => {
-            search.value !== '' ? console.log('active datasearch') : console.log('active data')
             refreshRoles()
             setData((prevData) => {
-                console.log("prevData", prevData)
                 const exist = prevData.find((elem) => elem._id === socketData.data._id)
                 if (exist) {
                     return prevData.map((item) =>
@@ -133,7 +128,7 @@ export default function Roles({ navigation }) {
 
     const refreshRoles = () => {
         search.clearValue()
-        if (!offlineStorage) {
+        if (!offline) {
             getRoles(query.skip, query.limit)
         }
     };
@@ -148,59 +143,44 @@ export default function Roles({ navigation }) {
 
     return (
         <View>
-            {
-                !offlineStorage ?
-                    <View>
-                        <Search placeholder={'Buscar rol'} searchInput={search} />
-                        <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: 15 }} >
-                            <Button text={'Nuevo Rol'} fontSize={14} width={'40%'} onPress={() => { navigation.navigate('NewRole') }} />
-                        </View>
-                        <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
-                        <FlatList
-                            style={{ height: '83%' }}
-                            ListEmptyComponent={() => {
-                                return (
-                                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                                        <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#666' }}>No hay roles disponibles</Text>
-                                    </View>
-                                )
-                            }}
-                            data={search.value !== '' ? dataSearch : data}
-                            renderItem={({ item }) => renderRoleItem({ item, navigation, isConnected })}
-                            keyExtractor={(item) => item._id}
-                            onEndReached={() => {
-                                if (!loading.open) {
-                                    if (search) {
-                                        if (search.value === '') {
-                                            dispatch(setLoading({
-                                                message: `Cargando nuevos roles`
-                                            }))
-                                            setQuery({ skip: query.skip + 15, limit: query.limit })
-                                        }
+            {offline ? (
+                <View>
+                    <Text>Estas en modo sin conexion</Text>
+                </View>
+            ) : (
+                <View>
+                    <Search placeholder={'Buscar rol'} searchInput={search} />
+                    <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: 15 }} >
+                        <Button text={'Nuevo Rol'} fontSize={14} width={'40%'} onPress={() => { navigation.navigate('NewRole') }} />
+                    </View>
+                    <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
+                    <FlatList
+                        style={{ height: '83%' }}
+                        ListEmptyComponent={() => {
+                            return (
+                                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                    <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#666' }}>No hay roles disponibles</Text>
+                                </View>
+                            )
+                        }}
+                        data={search.value !== '' ? dataSearch : data}
+                        renderItem={({ item }) => renderRoleItem({ item, navigation, isConnected })}
+                        keyExtractor={(item) => item._id}
+                        onEndReached={() => {
+                            if (!loading.open) {
+                                if (search) {
+                                    if (search.value === '') {
+                                        dispatch(setLoading({
+                                            message: `Cargando nuevos roles`
+                                        }))
+                                        setQuery({ skip: query.skip + 15, limit: query.limit })
                                     }
                                 }
-                            }}
-                        />
-                    </View>
-                    :
-                    <View>
-                        <Search placeholder={'Buscar rol'} searchInput={search} />
-                        <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#C7253E', paddingHorizontal: 15 }} >Estas en modo sin conexion</Text>
-                        <FlatList
-                            style={{ height: '83%' }}
-                            data={filteredArray}
-                            renderItem={({ item }) => renderRoleItem({ item, navigation, isConnected })}
-                            keyExtractor={(item) => item._id}
-                            ListEmptyComponent={() => {
-                                return (
-                                    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                                        <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#666' }}>No hay roles disponibles</Text>
-                                    </View>
-                                )
-                            }}
-                        />
-                    </View>
-            }
+                            }
+                        }}
+                    />
+                </View>
+            )}
         </View>
     )
 }

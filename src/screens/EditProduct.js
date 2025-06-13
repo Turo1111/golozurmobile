@@ -23,8 +23,6 @@ export default function EditProduct({ route, navigation }) {
     initialValues: initialValues(details),
     validateOnChange: false,
     onSubmit: (formValue) => {
-      /* console.log("formvalue",formValue)
-      return */
       if (formValue.descripcion === '' || formValue.stock <= 0 || formValue.precioUnitario <= 0) {
         dispatch(setAlert({
           message: `Falta descripcion o stock o precio unitario `,
@@ -70,7 +68,6 @@ export default function EditProduct({ route, navigation }) {
   useEffect(() => {
     const socket = io('http://10.0.2.2:5000')
     socket.on(`/product`, (socket) => {
-      console.log("socket", socket)
       setDetails((prevData) => {
         if (socket.data._id === id) {
           return socket.data

@@ -48,7 +48,6 @@ export default function DetailsProduct({ route, navigation }) {
         .then((response) => {
           const parsedResponse = JSON.parse(response.body)
           filename = `/${parsedResponse.filename}`
-          console.log(filename);
         })
         .catch((e) => console.log("error", e))
 
@@ -99,7 +98,6 @@ export default function DetailsProduct({ route, navigation }) {
   }
 
   const getImage = (path) => {
-    console.log('llamando', path)
     apiClient.get(`/product/image/${path}`,
       {
         headers: {
@@ -107,16 +105,13 @@ export default function DetailsProduct({ route, navigation }) {
         },
       })
       .then(response => {
-        console.log("imagen?", response.data)
         /* setImageFile() */
       })
       .catch(e => console.log("error get image", e))
   }
 
   useEffect(() => {
-    console.log("antes", user, userStorage, id)
     if (user.token !== '' || userStorage.length !== 0) {
-      console.log("despues", user, userStorage)
       getDetails()
     }
   }, [user, userStorage])
@@ -125,9 +120,7 @@ export default function DetailsProduct({ route, navigation }) {
     const uri = Constants?.expoConfig?.hostUri
       ? Constants.expoConfig.hostUri.split(`:`).shift().concat(`:8080`)
       : `yourapi.com`
-    console.log(uri);
     if (details?.path) {
-      console.log('path dividido', details.path.split('/')[1], details.descripcion)
       getImage(details.path.split('/')[1])
     }
   }, [details])
@@ -135,7 +128,6 @@ export default function DetailsProduct({ route, navigation }) {
   useEffect(() => {
     const socket = io('http://10.0.2.2:5000')
     socket.on(`product`, (socket) => {
-      console.log("socket", socket)
       setDetails((prevData) => {
         if (socket.data._id === id) {
           return socket.data
