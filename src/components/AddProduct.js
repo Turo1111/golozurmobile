@@ -2,12 +2,15 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import ModalContainer from './ModalContainer'
 import Button from './Button'
+import usePermissionCheck from '../hooks/usePermissionCheck'
 
 export default function AddProduct({ open, onClose, product, addCart }) {
 
     const [cantidad, setCantidad] = useState(1)
     const [total, setTotal] = useState(0)
     const [precioUnitario, setPrecioUnitario] = useState(0)
+
+    const { hasPermission: hasPermissionUpdateProduct, isLoading: isLoadingUpdateProduct } = usePermissionCheck('update_product', () => { })
 
     useEffect(() => {
         setTotal(prevData => parseFloat(cantidad) * parseFloat(precioUnitario))
@@ -76,20 +79,24 @@ export default function AddProduct({ open, onClose, product, addCart }) {
                     <Text style={{ fontSize: 20, textAlign: 'center', fontWeight: 'bold', marginBottom: 5, backgroundColor: '#fff', borderRadius: 10 }}>Total: $ {total}</Text>
                 </View>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }} >
-                <Text style={{ fontSize: 16, marginRight: 5 }}>Precio unitario : $</Text>
-                <TextInput placeholder={'Precio unitario'} style={[styles.input, { width: 150 }]} value={precioUnitario.toString()} onChangeText={(e) => {
-                    if (e !== '') {
-                        setPrecioUnitario(prevData => e);
-                        setTotal(prevData => parseFloat(cantidad) * parseFloat(e))
-                        /* onChangePrecioUnitario(e, product._id) */
-                        return
-                    }
-                    setPrecioUnitario(prevData => 0);
-                    return
+            {
+                hasPermissionUpdateProduct && (
+                    <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }} >
+                        <Text style={{ fontSize: 16, marginRight: 5 }}>Precio unitario : $</Text>
+                        <TextInput placeholder={'Precio unitario'} style={[styles.input, { width: 150 }]} value={precioUnitario.toString()} onChangeText={(e) => {
+                            if (e !== '') {
+                                setPrecioUnitario(prevData => e);
+                                setTotal(prevData => parseFloat(cantidad) * parseFloat(e))
+                                /* onChangePrecioUnitario(e, product._id) */
+                                return
+                            }
+                            setPrecioUnitario(prevData => 0);
+                            return
 
-                }} keyboardType='numeric' />
-            </View>
+                        }} keyboardType='numeric' />
+                    </View>
+                )
+            }
             <View style={{ flexDirection: 'row', justifyContent: 'space-around' }} >
                 <Button text={'Cancelar'} onPress={onClose} />
                 <Button text={'Aceptar'} onPress={() => { onClose(); addCart(product, cantidad, total, precioUnitario); setCantidad(1) }} />

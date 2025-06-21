@@ -12,14 +12,19 @@ import useLocalStorage from '../hooks/useLocalStorage';
 import useInternetStatus from '../hooks/useInternetStatus';
 import { OfflineContext } from '../context.js/contextOffline';
 import useFilteredArray from '../hooks/useFilteredArray';
+import { setAlert } from '../redux/alertSlice';
+import usePermissionCheck from '../hooks/usePermissionCheck';
 
 const renderRoleItem = ({ item, navigation, isConnected }) => {
     return (
         <Pressable style={styles.item} onPress={() => {
+            if (item.name === 'admin') {
+                return
+            }
             if (!isConnected) {
                 return
             }
-            navigation.navigate('DetailsRole', {
+            navigation.navigate('EditRole', {
                 id: item._id,
                 name: item.name,
             })
@@ -46,6 +51,9 @@ export default function Roles({ navigation }) {
     const isConnected = useInternetStatus();
     const search = useInputValue('', '')
     const { offline } = useContext(OfflineContext)
+
+    const { hasPermission: hasPermissionReadRole, isLoading: isLoadingReadRole } = usePermissionCheck('read_role', () => { })
+    const { hasPermission: hasPermissionCreateRole, isLoading: isLoadingCreateRole } = usePermissionCheck('create_role', () => { })
 
     const getRoles = (skip, limit) => {
         dispatch(setLoading({
@@ -74,6 +82,10 @@ export default function Roles({ navigation }) {
             })
             .catch(e => {
                 console.log("error", e);
+                dispatch(setAlert({
+                    message: `${e.response?.data || 'Ocurrio un error'}`,
+                    type: 'error'
+                }))
                 dispatch(clearLoading())
             })
     }
@@ -91,6 +103,10 @@ export default function Roles({ navigation }) {
             })
             .catch(e => {
                 console.log("error", e);
+                dispatch(setAlert({
+                    message: `${e.response?.data || 'Ocurrio un error'}`,
+                    type: 'error'
+                }))
                 dispatch(clearLoading())
             })
     }
@@ -128,9 +144,9 @@ export default function Roles({ navigation }) {
 
     const refreshRoles = () => {
         search.clearValue()
-        if (!offline) {
+        /* if (!offline) {
             getRoles(query.skip, query.limit)
-        }
+        } */
     };
 
     useEffect(() => {
@@ -140,6 +156,10 @@ export default function Roles({ navigation }) {
 
         return unsubscribe
     }, [navigation]);
+
+    if (isLoadingReadRole || !hasPermissionReadRole) {
+        return null
+    }
 
     return (
         <View>
@@ -151,7 +171,9 @@ export default function Roles({ navigation }) {
                 <View>
                     <Search placeholder={'Buscar rol'} searchInput={search} />
                     <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: 15 }} >
-                        <Button text={'Nuevo Rol'} fontSize={14} width={'40%'} onPress={() => { navigation.navigate('NewRole') }} />
+                        {hasPermissionCreateRole && (
+                            <Button text={'Nuevo Rol'} fontSize={14} width={'40%'} onPress={() => { navigation.navigate('NewRole') }} />
+                        )}
                     </View>
                     <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
                     <FlatList

@@ -16,38 +16,34 @@ const validationSchema = Yup.object().shape({
         .required('El apodo es obligatorio')
         .min(3, 'El apodo debe tener al menos 3 caracteres'),
     password: Yup.string()
-        .required('La contraseña es obligatoria')
         .min(6, 'La contraseña debe tener al menos 6 caracteres'),
     role: Yup.string()
         .required('Debe seleccionar un rol')
 })
 
-export default function NewUser({ navigation }) {
+export default function EditUser({ route, navigation }) {
     const user = useAppSelector(getUser)
     const { data: userStorage } = useLocalStorage([], 'user')
     const dispatch = useAppDispatch()
     const [roles, setRoles] = useState([])
-
-    const { hasPermission: hasPermissionCreateUser, isLoading: isLoadingCreateUser } = usePermissionCheck('create_user', () => {
-
+    const [initialValues, setInitialValues] = useState({
+        nickname: '',
+        email: '',
+        password: '',
+        role: '',
+        isActive: true
     })
+    const { id } = route.params || {}
+
+    const { hasPermission: hasPermissionUpdateUser, isLoading: isLoadingUpdateUser } = usePermissionCheck('update_user', () => { })
 
     const formik = useFormik({
-        initialValues: {
-            nickname: '',
-            email: '',
-            password: '',
-            role: '',
-            isActive: true
-        },
+        enableReinitialize: true,
+        initialValues,
         validationSchema,
         onSubmit: (values) => {
-
-            dispatch(setLoading({
-                message: 'Creando usuario'
-            }))
-
-            apiClient.post('/auth/register', values, {
+            dispatch(setLoading({ message: 'Actualizando usuario' }))
+            apiClient.patch(`/user/${id}`, values, {
                 headers: {
                     Authorization: `Bearer ${user.token || userStorage.token}`
                 },
@@ -55,10 +51,10 @@ export default function NewUser({ navigation }) {
                 .then(() => {
                     dispatch(clearLoading())
                     dispatch(setAlert({
-                        message: 'Usuario creado correctamente',
+                        message: 'Usuario actualizado correctamente',
                         type: 'success'
                     }))
-                    navigation.navigate('Users')
+                    navigation.goBack()
                 })
                 .catch((e) => {
                     dispatch(clearLoading())
@@ -73,14 +69,12 @@ export default function NewUser({ navigation }) {
     useEffect(() => {
         if (user.token || userStorage.token) {
             getRoles()
+            getUserData()
         }
     }, [user.token, userStorage.token])
 
     const getRoles = () => {
-        dispatch(setLoading({
-            message: 'Cargando roles'
-        }))
-
+        dispatch(setLoading({ message: 'Cargando roles' }))
         apiClient.get('/role', {
             headers: {
                 Authorization: `Bearer ${user.token || userStorage.token}`
@@ -91,7 +85,6 @@ export default function NewUser({ navigation }) {
                 dispatch(clearLoading())
             })
             .catch((e) => {
-                console.log('error', e)
                 dispatch(clearLoading())
                 dispatch(setAlert({
                     message: `${e.response?.data || 'Ocurrio un error'}`,
@@ -100,7 +93,33 @@ export default function NewUser({ navigation }) {
             })
     }
 
-    if (isLoadingCreateUser || !hasPermissionCreateUser) {
+    const getUserData = () => {
+        dispatch(setLoading({ message: 'Cargando usuario' }))
+        apiClient.get(`/user/${id}`, {
+            headers: {
+                Authorization: `Bearer ${user.token || userStorage.token}`
+            },
+        })
+            .then(response => {
+                setInitialValues({
+                    nickname: response.data.nickname || '',
+                    email: response.data.email || '',
+                    password: '',
+                    role: response.data.role || '',
+                    isActive: response.data.isActive !== undefined ? response.data.isActive : true
+                })
+                dispatch(clearLoading())
+            })
+            .catch((e) => {
+                dispatch(clearLoading())
+                dispatch(setAlert({
+                    message: `${e.response?.data || 'Ocurrio un error'}`,
+                    type: 'error'
+                }))
+            })
+    }
+
+    if (isLoadingUpdateUser || !hasPermissionUpdateUser) {
         return null
     }
 
@@ -120,22 +139,20 @@ export default function NewUser({ navigation }) {
                         <Text style={styles.errorText}>{formik.errors.nickname}</Text>
                     )}
                 </View>
-
                 <View style={styles.inputContainer}>
-                    <Text style={styles.label}>Contraseña *</Text>
+                    <Text style={styles.label}>Contraseña (opcional)</Text>
                     <TextInput
                         style={[styles.input, formik.errors.password && formik.touched.password && styles.inputError]}
                         value={formik.values.password}
                         onChangeText={formik.handleChange('password')}
                         onBlur={formik.handleBlur('password')}
-                        placeholder="Ingrese la contraseña"
+                        placeholder="Dejar vacío para mantener la contraseña actual"
                         secureTextEntry
                     />
                     {formik.errors.password && formik.touched.password && (
                         <Text style={styles.errorText}>{formik.errors.password}</Text>
                     )}
                 </View>
-
                 <View style={styles.inputContainer}>
                     <Text style={styles.label}>Rol *</Text>
                     <View style={styles.roleContainer}>
@@ -147,7 +164,6 @@ export default function NewUser({ navigation }) {
                                     formik.values.role === role._id && styles.roleButtonSelected
                                 ]}
                                 onPress={() => {
-                                    // Si el rol ya está seleccionado, lo deseleccionamos
                                     if (formik.values.role === role._id) {
                                         formik.setFieldValue('role', '')
                                     } else {
@@ -168,10 +184,9 @@ export default function NewUser({ navigation }) {
                         <Text style={styles.errorText}>{formik.errors.role}</Text>
                     )}
                 </View>
-
                 <View style={styles.buttonContainer}>
                     <Button
-                        text="Crear Usuario"
+                        text="Actualizar Usuario"
                         onPress={formik.handleSubmit}
                         width="100%"
                     />
@@ -239,4 +254,4 @@ const styles = StyleSheet.create({
     buttonContainer: {
         marginTop: 16,
     },
-}); 
+});

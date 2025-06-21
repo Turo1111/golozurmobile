@@ -34,7 +34,7 @@ export default function InputSelectAdd({ value, onChange, name, path }) {
         setData(response.data)
         setLoading(false)
       })
-      .catch(e => console.log(e))
+      .catch(e => console.log("error getData", e))
   }
 
   const addValue = (item) => {

@@ -7,6 +7,7 @@ import { setAlert } from '../redux/alertSlice'
 import apiClient from '../utils/client'
 import useLocalStorage from '../hooks/useLocalStorage'
 import Button from '../components/Button'
+import usePermissionCheck from '../hooks/usePermissionCheck'
 
 const entities = [
     { id: "user", name: "Usuarios" },
@@ -14,6 +15,7 @@ const entities = [
     { id: "product", name: "Productos" },
     { id: "sale", name: "Ventas" },
     { id: "buy", name: "Compras" },
+    { id: "client", name: "Clientes" },
 ]
 
 const actions = [
@@ -34,6 +36,8 @@ export default function EditRole({ route, navigation }) {
         permissions: [],
         isActive: true
     })
+
+    const { hasPermission: hasPermissionUpdateRole, isLoading: isLoadingUpdateRole } = usePermissionCheck('update_role', () => { })
 
     useEffect(() => {
         if (id && (user.token || userStorage.token)) {
@@ -61,10 +65,10 @@ export default function EditRole({ route, navigation }) {
                 dispatch(clearLoading())
             })
             .catch(e => {
-                console.log("error", e)
+                console.log("error details role", e)
                 dispatch(clearLoading())
                 dispatch(setAlert({
-                    message: e.response?.data?.error || 'Error al cargar los detalles del rol',
+                    message: `Error al cargar los detalles del rol: ${e.response?.data?.error}` || 'Error al cargar los detalles del rol',
                     type: 'error'
                 }))
             })
@@ -155,6 +159,10 @@ export default function EditRole({ route, navigation }) {
                     type: 'error'
                 }))
             })
+    }
+
+    if (isLoadingUpdateRole || !hasPermissionUpdateRole) {
+        return null
     }
 
     return (

@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from "../redux/hook";
 import { clearLoading, setLoading } from "../redux/loadingSlice";
 import { getUser } from "../redux/userSlice";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { setAlert } from "../redux/alertSlice";
 
 export const OfflineContext = createContext();
 
@@ -71,6 +72,7 @@ export const OfflineProvider = ({ children }) => {
       })
         .then((r) => {
           clearDataStorage('saleStorage')
+          setSales([])
           dispatch(clearLoading())
         })
         .catch((e) => { console.log('error post sale multiple', e); dispatch(clearLoading()) })
@@ -80,7 +82,6 @@ export const OfflineProvider = ({ children }) => {
 
   const createSale = async (saleData) => {
     try {
-      console.log('saleData', saleData)
       const updatedSales = [...sales, saleData];
       saveDataStorage(updatedSales, 'saleStorage')
       //await setSaleStorage(updatedSales)
@@ -102,7 +103,13 @@ export const OfflineProvider = ({ children }) => {
           saveDataStorage(r.data, 'productStorage')
           dispatch(clearLoading())
         })
-        .catch(e => { console.log('error get product', e); dispatch(clearLoading()) })
+        .catch(e => {
+          console.log('error get product', e); dispatch(clearLoading())
+          dispatch(setAlert({
+            message: `${e.response?.data || 'Ocurrio un error'}`,
+            type: 'error'
+          }))
+        })
     }
 
     if (offline) {

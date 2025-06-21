@@ -22,6 +22,7 @@ import AlertPostSale from '../components/AlertPostSale';
 
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import usePermissionCheck from '../hooks/usePermissionCheck';
 
 
 const formatDate = (date) => {
@@ -70,6 +71,8 @@ export default function NewSale({ navigation }) {
   //const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
   const { createSale } = useContext(OfflineContext)
 
+  const { hasPermission: hasPermissionCreateSale, isLoading: isLoadingCreateSale } = usePermissionCheck('create_sale', () => { })
+
   const cliente = useInputValue('', '')
   const search = useInputValue('', '')
   const porcentaje = useInputValue('0', 'number')
@@ -103,7 +106,14 @@ export default function NewSale({ navigation }) {
         })
         dispatch(clearLoading())
       })
-      .catch(e => console.log("error", e))
+      .catch(e => {
+        console.log('error', e);
+        dispatch(clearLoading())
+        dispatch(setAlert({
+          message: `${e.response?.data || 'Ocurrio un error'}`,
+          type: 'error'
+        }))
+      })
   }
 
   const getProductSearch = (input, categorie, brand, provider) => {
@@ -112,7 +122,13 @@ export default function NewSale({ navigation }) {
       .then(response => {
         setDataSearch(response.data)
       })
-      .catch(e => { console.log("error", e); })
+      .catch(e => {
+        console.log("error", e);
+        dispatch(setAlert({
+          message: `${e.response?.data || 'Ocurrio un error'}`,
+          type: 'error'
+        }))
+      })
   }
 
   useEffect(() => {
@@ -253,7 +269,7 @@ export default function NewSale({ navigation }) {
         })
         .catch(e => {
           dispatch(setAlert({
-            message: 'Hubo un error al obtener la venta 1',
+            message: `${e.response?.data || 'Ocurrio un error'}`,
             type: 'error'
           }));
         });
@@ -261,7 +277,7 @@ export default function NewSale({ navigation }) {
 
     if (!details) {
       dispatch(setAlert({
-        message: 'Hubo un error al obtener la venta 2',
+        message: `${e.response?.data || 'Ocurrio un error'}`,
         type: 'error'
       }));
       return;
@@ -399,6 +415,10 @@ export default function NewSale({ navigation }) {
       socket.disconnect();
     };
   }, [data])
+
+  if (isLoadingCreateSale || !hasPermissionCreateSale) {
+    return null
+  }
 
   return (
     <SafeAreaView style={styles.content}  >

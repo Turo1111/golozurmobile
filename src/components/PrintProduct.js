@@ -10,6 +10,7 @@ import * as Sharing from 'expo-sharing';
 import { Buffer } from 'buffer';
 import { getUser } from '../redux/userSlice'
 import useLocalStorage from '../hooks/useLocalStorage'
+import usePermissionCheck from '../hooks/usePermissionCheck'
 
 const arrayBufferToBase64 = (buffer) => {
   return Buffer.from(buffer).toString('base64');
@@ -31,6 +32,8 @@ export default function PrintProduct({ open, onClose }) {
     conDescuento: [],
     sinDescuento: []
   })
+
+  const { hasPermission: hasPermissionUpdateProduct, isLoading: isLoadingUpdateProduct } = usePermissionCheck('update_product', () => { })
 
   const handleCategoriaEstado = (item) => {
     const isInConDescuento = categoriaEstado.conDescuento.find(elem => elem._id === item._id);
@@ -199,6 +202,10 @@ export default function PrintProduct({ open, onClose }) {
     }
   };
 
+  useEffect(() => {
+    console.log('selectCategorie', selectCategorie)
+  }, [selectCategorie])
+
   return (
     <View>
       <ModalContainer
@@ -221,28 +228,36 @@ export default function PrintProduct({ open, onClose }) {
               </View>
               <Text style={styles.radioText}>Precios normales</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.radioButton}
-              onPress={() => setSelectedOption('descuento')}
-            >
-              <View style={styles.radio}>
-                {selectedOption === 'descuento' && (
-                  <View style={styles.radioInner} />
-                )}
-              </View>
-              <Text style={styles.radioText}>Precios con descuento</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.radioButton}
-              onPress={() => setSelectedOption('porcentaje')}
-            >
-              <View style={styles.radio}>
-                {selectedOption === 'porcentaje' && (
-                  <View style={styles.radioInner} />
-                )}
-              </View>
-              <Text style={styles.radioText}>Precios aplicando descuentos</Text>
-            </TouchableOpacity>
+            {
+              hasPermissionUpdateProduct && (
+                <TouchableOpacity
+                  style={styles.radioButton}
+                  onPress={() => setSelectedOption('descuento')}
+                >
+                  <View style={styles.radio}>
+                    {selectedOption === 'descuento' && (
+                      <View style={styles.radioInner} />
+                    )}
+                  </View>
+                  <Text style={styles.radioText}>Precios con descuento</Text>
+                </TouchableOpacity>
+              )
+            }
+            {
+              hasPermissionUpdateProduct && (
+                <TouchableOpacity
+                  style={styles.radioButton}
+                  onPress={() => setSelectedOption('porcentaje')}
+                >
+                  <View style={styles.radio}>
+                    {selectedOption === 'porcentaje' && (
+                      <View style={styles.radioInner} />
+                    )}
+                  </View>
+                  <Text style={styles.radioText}>Precios aplicando descuentos</Text>
+                </TouchableOpacity>
+              )
+            }
           </View>
           {
             (selectedOption === 'normal' || selectedOption === 'descuento') &&
@@ -258,7 +273,7 @@ export default function PrintProduct({ open, onClose }) {
                     </Text>
                   ) : (
                     categorie.map((item, index) => {
-                      let isActive = selectCategorie.find(elem => elem._id === item._id) ? true : false
+                      let isActive = selectCategorie?.find(elem => elem._id === item._id) ? true : false
                       return <Text
                         key={index} style={[styles.item, {
                           color: `${isActive ? '#fff' : 'black'}`,
@@ -267,8 +282,13 @@ export default function PrintProduct({ open, onClose }) {
                         onPress={() => {
                           setSelectCategorie((prevData) => {
                             if (item._id !== 0) {
-                              let clearPrev = prevData.filter((itemPrev) => itemPrev._id === item._id)
-                              return [...clearPrev, item]
+                              let clearPrev = prevData?.filter((itemPrev) => itemPrev._id !== 0)
+                              let exist = clearPrev?.find(elem => elem._id === item._id)
+                              if (exist) {
+                                return [...clearPrev.filter(elem => elem._id !== item._id)]
+                              } else {
+                                return [...clearPrev, item]
+                              }
                             }
                             return [item]
                           })

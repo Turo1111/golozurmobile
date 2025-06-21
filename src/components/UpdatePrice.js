@@ -49,7 +49,13 @@ export default function UpdatePrice({ open, onClose, updateQuery }) {
             formik.resetForm()
             onClose(); dispatch(clearLoading())
           })
-          .catch(e => { console.log("error", e); dispatch(clearLoading()) })
+          .catch(e => {
+            console.log("error", e); dispatch(clearLoading())
+            dispatch(setAlert({
+              message: `${e.response?.data || 'Ocurrio un error'}`,
+              type: 'error'
+            }))
+          })
       } else {
         return dispatch(setAlert({
           message: 'Tiene que elegir algun filtro',

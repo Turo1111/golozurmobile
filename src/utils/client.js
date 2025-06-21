@@ -3,7 +3,8 @@ import { store } from '../redux/store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const apiClient = axios.create({
-  baseURL: 'http://10.0.2.2:5000'
+  baseURL: 'http://10.0.2.2:5000',
+  timeout: 7000
 });
 
 // Function to get token from Redux or AsyncStorage

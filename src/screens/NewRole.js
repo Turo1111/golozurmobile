@@ -7,6 +7,7 @@ import { setAlert } from '../redux/alertSlice'
 import apiClient from '../utils/client'
 import useLocalStorage from '../hooks/useLocalStorage'
 import Button from '../components/Button'
+import usePermissionCheck from '../hooks/usePermissionCheck'
 
 const entities = [
     { id: "user", name: "Usuarios" },
@@ -14,6 +15,7 @@ const entities = [
     { id: "product", name: "Productos" },
     { id: "sale", name: "Ventas" },
     { id: "buy", name: "Compras" },
+    { id: "client", name: "Clientes" },
 ]
 
 const actions = [
@@ -33,6 +35,8 @@ export default function NewRole({ navigation }) {
         permissions: [],
         isActive: true
     })
+
+    const { hasPermission: hasPermissionCreateRole, isLoading: isLoadingCreateRole } = usePermissionCheck('create_role', () => { })
 
     const handlePermissionChange = (entity, action, checked) => {
         const permission = `${action}_${entity}`
@@ -117,13 +121,18 @@ export default function NewRole({ navigation }) {
                 }))
                 navigation.navigate('Roles')
             })
-            .catch((e) => {
+            .catch(e => {
+                console.log('error', e);
                 dispatch(clearLoading())
                 dispatch(setAlert({
-                    message: e.response?.data?.error || 'Error al procesar la solicitud',
+                    message: `${e.response?.data || 'Ocurrio un error'}`,
                     type: 'error'
                 }))
             })
+    }
+
+    if (isLoadingCreateRole || !hasPermissionCreateRole) {
+        return null
     }
 
     return (

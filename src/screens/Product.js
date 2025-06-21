@@ -16,6 +16,7 @@ import { OfflineContext } from '../context.js/contextOffline';
 import useFilteredArray from '../hooks/useFilteredArray';
 import PrintProduct from '../components/PrintProduct';
 import { setAlert } from '../redux/alertSlice';
+import usePermissionCheck from '../hooks/usePermissionCheck';
 
 const renderItem = ({ item, navigation, isConnected }) => {
 
@@ -59,6 +60,10 @@ export default function Product({ navigation }) {
   const fechaHoy = new Date()
   const [openPrint, setOpenPrint] = useState(false)
 
+  const { hasPermission: hasPermissionCreateProduct, isLoading: isLoadingCreateProduct } = usePermissionCheck('create_product', () => { })
+  const { hasPermission: hasPermissionUpdateProduct, isLoading: isLoadingUpdateProduct } = usePermissionCheck('update_product', () => { })
+  const { hasPermission: hasPermissionReadProduct, isLoading: isLoadingReadProduct } = usePermissionCheck('read_product', () => { })
+
   //const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
 
   const search = useInputValue('', '')
@@ -93,7 +98,13 @@ export default function Product({ navigation }) {
         })
         dispatch(clearLoading())
       })
-      .catch(e => { console.log("error", e); dispatch(clearLoading()) })
+      .catch(e => {
+        console.log("error getProduct", e); dispatch(clearLoading())
+        dispatch(setAlert({
+          message: `${e.response?.data || 'Ocurrio un error'}`,
+          type: 'error'
+        }))
+      })
   }
 
   const getProductSearch = (input, categorie, brand, provider) => {
@@ -108,7 +119,13 @@ export default function Product({ navigation }) {
       .then(response => {
         setDataSearch(response.data)
       })
-      .catch(e => { console.log("error", e); dispatch(clearLoading()) })
+      .catch(e => {
+        console.log("error", e); dispatch(clearLoading())
+        dispatch(setAlert({
+          message: `${e.response?.data || 'Ocurrio un error'}`,
+          type: 'error'
+        }))
+      })
   }
 
   useEffect(() => {
@@ -157,6 +174,10 @@ export default function Product({ navigation }) {
     return unsubscribe
   }, [navigation]);
 
+  if (isLoadingReadProduct || !hasPermissionReadProduct) {
+    return null
+  }
+
   return (
     <View>
       {
@@ -164,9 +185,15 @@ export default function Product({ navigation }) {
           <View>
             <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={() => setOpenFilter(true)} />
             <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15 }} >
-              <Button text={'Nuevo'} fontSize={14} width={'25%'} onPress={() => { navigation.navigate('NewProduct') }} />
-              <Button text={'Actualizar'} fontSize={14} width={'30%'} onPress={() => setOpenUpdate(true)} />
-              <Button text={'Imprimir'} fontSize={14} width={'25%'} onPress={() => setOpenPrint(true)} />
+              {hasPermissionCreateProduct && (
+                <Button text={'Nuevo'} fontSize={14} width={'25%'} onPress={() => { navigation.navigate('NewProduct') }} />
+              )}
+              {hasPermissionUpdateProduct && (
+                <Button text={'Actualizar'} fontSize={14} width={'30%'} onPress={() => setOpenUpdate(true)} />
+              )}
+              {hasPermissionReadProduct && (
+                <Button text={'Imprimir'} fontSize={14} width={'25%'} onPress={() => setOpenPrint(true)} />
+              )}
             </View>
             <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
             <FlatList

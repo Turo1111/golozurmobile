@@ -12,6 +12,7 @@ import { setAlert } from '../redux/alertSlice';
 import Constants from 'expo-constants';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { clearLoading, setLoading } from '../redux/loadingSlice'
+import usePermissionCheck from '../hooks/usePermissionCheck';
 
 export default function DetailsProduct({ route, navigation }) {
 
@@ -22,6 +23,16 @@ export default function DetailsProduct({ route, navigation }) {
   const [image, setImage] = useState(undefined)
   const [imageFile, setImageFile] = useState(undefined)
   const dispatch = useAppDispatch();
+
+  const { hasPermission: hasPermissionReadProduct, isLoading: isLoadingReadProduct } = usePermissionCheck('read_product', () => {
+    dispatch(setAlert({
+      message: `No tienes permisos para crear productos`,
+      type: 'warning'
+    }))
+    navigation.goBack()
+  })
+
+  const { hasPermission: hasPermissionUpdateProduct, isLoading: isLoadingUpdateProduct } = usePermissionCheck('update_product', () => { })
 
   const pickImage = async () => {
     // No permissions request is necessary for launching the image library
@@ -94,7 +105,13 @@ export default function DetailsProduct({ route, navigation }) {
         setDetails(response.data[0])
         dispatch(clearLoading())
       })
-      .catch(e => { console.log("error getdetail", e); dispatch(clearLoading()) })
+      .catch(e => {
+        console.log("error getdetail", e); dispatch(clearLoading())
+        dispatch(setAlert({
+          message: `${e.response?.data || 'Ocurrio un error'}`,
+          type: 'error'
+        }))
+      })
   }
 
   const getImage = (path) => {
@@ -140,7 +157,9 @@ export default function DetailsProduct({ route, navigation }) {
     };
   }, [id])
 
-
+  if (isLoadingReadProduct || !hasPermissionReadProduct) {
+    return null
+  }
 
   return (
     <View style={{ padding: 15 }}>
@@ -153,22 +172,21 @@ export default function DetailsProduct({ route, navigation }) {
         {/* } */}
       </View>
       <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginVertical: 10 }} >
-        <Button text={'Modificar'} fontSize={14} width={'45%'} onPress={() => navigation.navigate('EditProduct', {
-          id,
-          details
-        })} />
-        <Button text={'Elegir imagen'} fontSize={14} width={'45%'} onPress={pickImage} />
+        {hasPermissionUpdateProduct && (
+          <Button text={'Modificar'} fontSize={14} width={'45%'} onPress={() => navigation.navigate('EditProduct', {
+            id,
+            details
+          })} />
+        )}
+        {hasPermissionUpdateProduct && (
+          <Button text={'Elegir imagen'} fontSize={14} width={'45%'} onPress={pickImage} />
+        )}
       </View>
       <ScrollView style={{ maxHeight: '100%' }}>
         <Text style={{ color: '#252525', fontSize: 18, fontFamily: 'Cairo-Bold', marginVertical: 5 }}>Descripcion: {details?.descripcion || 'No definido'}</Text>
         <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Stock: {details?.stock || 'No definido'}</Text>
         <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Categoria: {details?.NameCategoria || 'No definido'}</Text>
         <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Marca: {details?.NameMarca || 'No definido'}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Proveedor: {details?.NameProveedor || 'No definido'}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Codigo de barra: {details?.codigoBarra || 'Sin codigo'}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Peso: {details?.peso?.cantidad || 'No definido'} {details?.peso?.unidad}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Bulto: {details?.bulto || 'No definido'}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Precio por Bulto: $ {details?.precioBulto || 'No definido'}</Text>
         <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Precio de compra: $ {details?.precioCompra || 'No definido'}</Text>
         <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Precio unitario: $ {details?.precioUnitario || 'No definido'}</Text>
         <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Precio Descuento: $ {details?.precioDescuento || 'No definido'}</Text>

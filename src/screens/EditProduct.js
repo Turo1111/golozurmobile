@@ -58,7 +58,7 @@ export default function EditProduct({ route, navigation }) {
           console.log('error', e);
           dispatch(clearLoading())
           dispatch(setAlert({
-            message: `${e.response.data.error || 'Ocurrio un error'}`,
+            message: `${e.response?.data || 'Ocurrio un error'}`,
             type: 'error'
           }))
         })

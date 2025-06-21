@@ -15,6 +15,10 @@ import Roles from '../screens/Roles';
 import NewRole from '../screens/NewRole';
 import DetailsRole from '../screens/DetailsRole';
 import EditRole from '../screens/EditRole';
+import EditUser from '../screens/EditUser';
+import Client from '../screens/Client';
+import NewClient from '../screens/NewClient';
+import EditClient from '../screens/EditClient';
 
 const Stack = createNativeStackNavigator();
 
@@ -36,6 +40,10 @@ export default function NavigationStack() {
       <Stack.Screen name='NewRole' component={NewRole} options={{ headerShown: true, title: 'Nuevo Rol' }} />
       <Stack.Screen name='DetailsRole' component={DetailsRole} options={({ route }) => ({ title: route.params.name })} />
       <Stack.Screen name='EditRole' component={EditRole} options={({ route }) => ({ title: `Editar ${route.params.name}` })} />
+      <Stack.Screen name='EditUser' component={EditUser} options={({ route }) => ({ title: `Editar ${route.params.name}` })} />
+      <Stack.Screen name='Client' component={Client} options={{ headerShown: true, title: 'Clientes' }} />
+      <Stack.Screen name='NewClient' component={NewClient} options={{ headerShown: true, title: 'Nuevo Cliente' }} />
+      <Stack.Screen name='EditClient' component={EditClient} options={({ route }) => ({ title: `Editar ${route.params.name}` })} />
     </Stack.Navigator>
   )
 }

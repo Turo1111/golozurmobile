@@ -10,11 +10,11 @@ import { clearLoading, setLoading } from '../redux/loadingSlice'
 import Logo from '../components/Logo'
 import useLocalStorage from '../hooks/useLocalStorage'
 
-export default function Login({navigation}) {
+export default function Login({ navigation }) {
 
     const dispatch = useAppDispatch();
     const user = useAppSelector(getUser);
-    const {data: userLocalStorage, saveData, clearData} = useLocalStorage([],'user')
+    const { data: userLocalStorage, saveData, clearData } = useLocalStorage([], 'user')
 
     const formik = useFormik({
         initialValues: {
@@ -26,78 +26,77 @@ export default function Login({navigation}) {
             dispatch(setLoading({
                 message: `Verificando los datos`
             }))
-           apiClient.post(`/auth/login`, formValue)
-            .then(async function(response){
-                console.log(response.data)
-                if( response.data === 'NOT_FOUND_USER' || response.data ==='PASSWORD_INCORRECT'){
-                    console.log('error', response.data)
+            apiClient.post(`/auth/login`, formValue)
+                .then(async function (response) {
+                    if (response.data === 'NOT_FOUND_USER' || response.data === 'PASSWORD_INCORRECT') {
+                        console.log('error', response.data)
+                        dispatch(setAlert({
+                            message: `${response.data}`,
+                            type: 'error'
+                        }))
+                        dispatch(clearLoading())
+                        return
+                    }
+                    dispatch(setUser(response.data))
                     dispatch(setAlert({
-                        message: `${response.data}`,
+                        message: `Bienvenido ${response.data.nickname}`,
+                        type: 'success'
+                    }))
+                    await saveData(response.data)
+                    dispatch(clearLoading())
+                    formik.resetForm()
+                    navigation.navigate('Home')
+                })
+                .catch(function (error) {
+                    console.log("post ", error);
+                    dispatch(setAlert({
+                        message: `Ocurrio un error`,
                         type: 'error'
                     }))
                     dispatch(clearLoading())
-                    return
-                }
-                dispatch(setUser(response.data))
-                dispatch(setAlert({
-                    message: `Bienvenido ${response.data.nickname}`,
-                    type: 'success'
-                }))
-                await saveData(response.data)
-                dispatch(clearLoading())
-                formik.resetForm()
-                navigation.navigate('Home')
-            })
-            .catch(function(error){
-                console.log("post ",error);
-                dispatch(setAlert({
-                    message: `Ocurrio un error`,
-                    type: 'error'
-                }))
-                dispatch(clearLoading())
-            }) 
+                })
         }
     })
 
     useEffect(() => {
         const isLogIn = async () => {
-          if (userLocalStorage.nickname !== '' && userLocalStorage.token !== '' && userLocalStorage.nickname !== undefined && userLocalStorage.token !== undefined) {
-            navigation.navigate('Home')
+            if (userLocalStorage.nickname !== '' && userLocalStorage.token !== '' && userLocalStorage.nickname !== undefined && userLocalStorage.token !== undefined) {
+                navigation.navigate('Home')
+                return
+            }
             return
-          }
-          return
         }
         if (userLocalStorage !== undefined && userLocalStorage !== '') {
             isLogIn()
         }
-        
+
     }, [userLocalStorage])
 
-  return (
-    <View style={styles.content}>
-        <Logo/>
-        <View>
-            <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginStart: '10%', marginVertical: 5,}}>Usuario</Text>
-            <View style={{flexDirection: 'row', justifyContent: 'center'}} >
-                <TextInput placeholder={''} style={styles.input}
-                    value={formik.values.nickname}
-                    onChangeText={(text)=> formik.setFieldValue('nickname', text)}
-                />
+    return (
+        <View style={styles.content}>
+            <Logo />
+            <View>
+                <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginStart: '10%', marginVertical: 5, }}>Usuario</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'center' }} >
+                    <TextInput placeholder={''} style={styles.input}
+                        value={formik.values.nickname}
+                        onChangeText={(text) => formik.setFieldValue('nickname', text)}
+                    />
+                </View>
+                <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginStart: '10%', marginVertical: 5 }}>Contraseña</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'center' }} >
+                    <TextInput placeholder={''} style={styles.input}
+                        value={formik.values.password}
+                        secureTextEntry={true}
+                        onChangeText={(text) => formik.setFieldValue('password', text)}
+                    />
+                </View>
             </View>
-            <Text style={{fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginStart: '10%', marginVertical: 5}}>Contraseña</Text>
-            <View style={{flexDirection: 'row', justifyContent: 'center'}} >
-                <TextInput placeholder={''} style={styles.input}
-                    value={formik.values.password}
-                    secureTextEntry={true}
-                    onChangeText={(text)=> formik.setFieldValue('password', text)}
-                />
+            <View style={{ flexDirection: 'row', justifyContent: 'center' }} >
+                <Button text={'INGRESAR'} fontSize={16} width={'30%'} style={{ marginTop: 15 }} onPress={formik.handleSubmit} />
             </View>
         </View>
-        <View style={{flexDirection: 'row', justifyContent: 'center'}} >
-            <Button text={'INGRESAR'} fontSize={16} width={'30%'} style={{marginTop: 15}} onPress={formik.handleSubmit} />
-        </View>
-    </View>
-  )
+    )
 }
 
 const styles = StyleSheet.create({

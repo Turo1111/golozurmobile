@@ -18,6 +18,7 @@ import { Buffer } from 'buffer';
 import { setAlert } from '../redux/alertSlice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Print from 'expo-print';
+import usePermissionCheck from '../hooks/usePermissionCheck';
 
 const arrayBufferToBase64 = (buffer) => {
   return Buffer.from(buffer).toString('base64');
@@ -35,6 +36,10 @@ export default function Sale({ navigation }) {
   const [dataSearch, setDataSearch] = useState([])
   const [error, setError] = useState(false)
   const [query, setQuery] = useState({ skip: 0, limit: 25 })
+
+  const { hasPermission: hasPermissionReadSale, isLoading: isLoadingReadSale } = usePermissionCheck('read_sale', () => { })
+  const { hasPermission: hasPermissionCreateSale, isLoading: isLoadingCreateSale } = usePermissionCheck('create_sale', () => { })
+  const { hasPermission: hasPermissionUpdateSale, isLoading: isLoadingUpdateSale } = usePermissionCheck('update_sale', () => { })
 
   const { offline, sales } = useContext(OfflineContext)
 
@@ -329,6 +334,10 @@ export default function Sale({ navigation }) {
     }
   };
 
+  if (isLoadingReadSale || !hasPermissionReadSale) {
+    return null
+  }
+
   return (
     <View>
       {
@@ -345,7 +354,9 @@ export default function Sale({ navigation }) {
             <View>
               <Search placeholder={'Buscar ventas'} searchInput={search} />
               <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15 }} >
-                <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={() => { navigation.navigate('NewSale') }} />
+                {hasPermissionCreateSale && (
+                  <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={() => { navigation.navigate('NewSale') }} />
+                )}
               </View>
               <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
               <FlatList
@@ -366,20 +377,24 @@ export default function Sale({ navigation }) {
                       <View style={{ display: 'flex', flexDirection: 'row', justifyContent: 'end', flex: 1 }}>
                         <Text style={{ fontSize: 14, color: '#252525', fontWeight: 500 }}>{item.createdAt.split("T")[0]}</Text>
                       </View>
-                      <View style={{ flexDirection: 'row', flex: 1 }} >
-                        <Pressable style={{ borderColor: '#d9d9d9', borderWidth: 1, padding: 8, marginVertical: 10, flexDirection: 'column', alignItems: 'center', flex: 1 }}
-                          onPress={() => downloadAndSharePDF(item)}
-                        >
-                          <FeatherIcons name='printer' size={20} color='#252525' style={{ textAlign: 'center' }} />
-                          <Text style={{ fontSize: 14, color: '#252525', fontWeight: 500 }}>Generar pdf</Text>
-                        </Pressable>
-                        <Pressable style={{ borderColor: '#d9d9d9', borderWidth: 1, padding: 8, marginVertical: 10, flexDirection: 'column', alignItems: 'center', flex: 1 }}
-                          onPress={() => generatePdf(item._id)}
-                        >
-                          <FeatherIcons name='printer' size={20} color='#252525' style={{ textAlign: 'center' }} />
-                          <Text style={{ fontSize: 14, color: '#252525', fontWeight: 500 }}>Generar ticket</Text>
-                        </Pressable>
-                      </View>
+                      {
+                        hasPermissionUpdateSale && (
+                          <View style={{ flexDirection: 'row', flex: 1 }} >
+                            <Pressable style={{ borderColor: '#d9d9d9', borderWidth: 1, padding: 8, marginVertical: 10, flexDirection: 'column', alignItems: 'center', flex: 1 }}
+                              onPress={() => downloadAndSharePDF(item)}
+                            >
+                              <FeatherIcons name='printer' size={20} color='#252525' style={{ textAlign: 'center' }} />
+                              <Text style={{ fontSize: 14, color: '#252525', fontWeight: 500 }}>Generar pdf</Text>
+                            </Pressable>
+                            <Pressable style={{ borderColor: '#d9d9d9', borderWidth: 1, padding: 8, marginVertical: 10, flexDirection: 'column', alignItems: 'center', flex: 1 }}
+                              onPress={() => generatePdf(item._id)}
+                            >
+                              <FeatherIcons name='printer' size={20} color='#252525' style={{ textAlign: 'center' }} />
+                              <Text style={{ fontSize: 14, color: '#252525', fontWeight: 500 }}>Generar ticket</Text>
+                            </Pressable>
+                          </View>
+                        )
+                      }
                     </Pressable>
                   )
                 }}
@@ -400,7 +415,9 @@ export default function Sale({ navigation }) {
             </View> :
           <View>
             <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', margin: 15 }} >
-              <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={() => { navigation.navigate('NewSale') }} />
+              {hasPermissionCreateSale && (
+                <Button text={'Nuevo'} fontSize={14} width={'45%'} onPress={() => { navigation.navigate('NewSale') }} />
+              )}
             </View>
             <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#C7253E', paddingHorizontal: 15 }} >Estas en modo sin conexion</Text>
             <FlatList
@@ -421,27 +438,19 @@ export default function Sale({ navigation }) {
                           <Text style={{ fontSize: 14, color: '#252525', fontWeight: 500 }}>{item.itemsSale.length} productos</Text>
                         </View>
                       </View>
-                      <Pressable onPress={() => generatePdf(item.cliente)} style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginLeft: 15, width: '20%', backgroundColor: '#608BC1', paddingVertical: 10 }}>
-                        <FeatherIcons name='printer' size={20} color='#fff' style={{ textAlign: 'center' }} />
-                      </Pressable>
+                      {
+                        hasPermissionUpdateSale && (
+                          <Pressable onPress={() => generatePdf(item.cliente)} style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginLeft: 15, width: '20%', backgroundColor: '#608BC1', paddingVertical: 10 }}>
+                            <FeatherIcons name='printer' size={20} color='#fff' style={{ textAlign: 'center' }} />
+                          </Pressable>
+                        )
+                      }
                     </View>
                   </Pressable>
                 )
               }}
               keyExtractor={(item) => item._id}
               ListEmptyComponent={<Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', paddingHorizontal: 15, textAlign: 'center', marginTop: '15%' }} >SIN VENTAS EN MODO OFFLINE</Text>}
-              onEndReached={() => {
-                /* if(!loading.open){
-                  if(search){
-                    if(search.value === ''){
-                      dispatch(setLoading({
-                          message: `Cargando nuevas ventas`
-                      }))
-                      setQuery({skip: query.skip+15, limit: query.limit})
-                    }
-                  }
-                } */
-              }}
             />
           </View>
       }
