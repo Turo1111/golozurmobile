@@ -29,7 +29,7 @@ export default function MyBottomSheet({ children, open, onClose, fullScreen = fa
 const styles = StyleSheet.create({
   overlay: {
     width: '100%',
-    backgroundColor: 'rgba(217,217,217,0.7)',
+    backgroundColor: '#f8f9fa',
     flex: 1,
     justifyContent: 'flex-end',
   },

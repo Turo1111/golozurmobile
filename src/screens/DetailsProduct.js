@@ -1,4 +1,4 @@
-import { BackHandler, Image, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { BackHandler, Image, ScrollView, StyleSheet, Text, View, TouchableOpacity } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import { getUser } from '../redux/userSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
@@ -9,10 +9,15 @@ import { io } from 'socket.io-client';
 import { MediaTypeOptions, launchImageLibraryAsync } from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { setAlert } from '../redux/alertSlice';
-import Constants from 'expo-constants';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { clearLoading, setLoading } from '../redux/loadingSlice'
 import usePermissionCheck from '../hooks/usePermissionCheck';
+import Icon from 'react-native-vector-icons/Feather';
+import Icon2 from 'react-native-vector-icons/AntDesign';
+import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import Constants from 'expo-constants';
+
+const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
 export default function DetailsProduct({ route, navigation }) {
 
@@ -143,7 +148,7 @@ export default function DetailsProduct({ route, navigation }) {
   }, [details])
 
   useEffect(() => {
-    const socket = io('http://10.0.2.2:5000')
+    const socket = io(DB_HOST)
     socket.on(`product`, (socket) => {
       setDetails((prevData) => {
         if (socket.data._id === id) {
@@ -162,38 +167,208 @@ export default function DetailsProduct({ route, navigation }) {
   }
 
   return (
-    <View style={{ padding: 15 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 5, padding: 5, shadowColor: "#000" }} >
-        {/* {
-          !imageFile ? 
-          <Image source={image ? { uri: image } : require('../../assets/icon.png')} style={{width: 150, height: 180, borderRadius: 15}} />
-          : */}
-        {/* <Image source={{ uri: 'https://i.imgur.com/weueadv.jpg' }} style={{ width: 150, height: 150, borderRadius: 15 }} /> */}
-        {/* } */}
+    <View style={{ flex: 1, backgroundColor: '#f6f8fa' }}>
+      {/* HEADER */}
+      <View style={{ backgroundColor: '#2563eb', borderBottomLeftRadius: 18, borderBottomRightRadius: 18, paddingTop: 40, paddingBottom: 18, paddingHorizontal: 15, elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10, marginRight: 10 }}>
+              <Icon name="arrow-left" size={18} color="#fff" />
+            </TouchableOpacity>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Detalles del Producto</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.18)', borderRadius: 16, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 2 }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#4CAF50' }} />
+              <Text style={{ color: '#fff', fontSize: 13, marginLeft: 4 }}>Online</Text>
+            </View>
+            <TouchableOpacity onPress={getDetails} style={{ marginLeft: 8, padding: 4, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10 }}>
+              <Icon name="refresh-cw" size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
-      <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', marginVertical: 10 }} >
-        {hasPermissionUpdateProduct && (
-          <Button text={'Modificar'} fontSize={14} width={'45%'} onPress={() => navigation.navigate('EditProduct', {
-            id,
-            details
-          })} />
-        )}
-        {hasPermissionUpdateProduct && (
-          <Button text={'Elegir imagen'} fontSize={14} width={'45%'} onPress={pickImage} />
-        )}
+      {/* CONTENIDO PRINCIPAL */}
+      <View style={{ alignItems: 'center', marginTop: 20 }}>
+        <View style={{ backgroundColor: '#fff', borderRadius: 24, padding: 18, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 }}>
+          <Image source={image ? { uri: image } : require('../../assets/icon.png')} style={{ width: 120, height: 140, borderRadius: 18, resizeMode: 'contain' }} />
+          {hasPermissionUpdateProduct && (
+            <TouchableOpacity style={{ position: 'absolute', bottom: 10, right: 10, backgroundColor: '#2563eb', borderRadius: 20, padding: 6 }} onPress={pickImage}>
+              <Icon name="camera" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ color: '#252525', fontSize: 18, fontWeight: 'bold', marginTop: 16 }}>{details?.descripcion || 'No definido'}</Text>
+          {hasPermissionUpdateProduct && (
+            <TouchableOpacity style={{ backgroundColor: '#2563eb', borderRadius: 8, padding: 8, marginTop: 16, marginLeft: 10 }} onPress={() => navigation.navigate('EditProduct', { id, details })}>
+              <Icon name="edit" size={18} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={{ flexDirection: 'row', marginTop: 8 }}>
+          <View style={{ backgroundColor: '#e3eefd', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 2, marginRight: 8 }}>
+            <Text style={{ color: '#2563eb', fontSize: 13 }}>{details?.NameCategoria || ''}</Text>
+          </View>
+          <View style={{ backgroundColor: '#e3eefd', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 2 }}>
+            <Text style={{ color: '#2563eb', fontSize: 13 }}>{details?.NameMarca || ''}</Text>
+          </View>
+        </View>
       </View>
-      <ScrollView style={{ maxHeight: '100%' }}>
-        <Text style={{ color: '#252525', fontSize: 18, fontFamily: 'Cairo-Bold', marginVertical: 5 }}>Descripcion: {details?.descripcion || 'No definido'}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Stock: {details?.stock || 'No definido'}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Categoria: {details?.NameCategoria || 'No definido'}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Marca: {details?.NameMarca || 'No definido'}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Precio de compra: $ {details?.precioCompra || 'No definido'}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Precio unitario: $ {details?.precioUnitario || 'No definido'}</Text>
-        <Text style={{ color: '#252525', fontSize: 16, fontFamily: 'Cairo-Regular', marginVertical: 5 }}>Precio Descuento: $ {details?.precioDescuento || 'No definido'}</Text>
+      {/* RESUMEN */}
+      <ScrollView style={{ flex: 1, marginHorizontal: 0, marginTop: 0, backgroundColor: '#fff', marginTop: 18 }} contentContainerStyle={{ paddingBottom: 30 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 8, backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 10, paddingVertical: 12 }}>
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <Text style={{ color: '#2563eb', fontSize: 20, fontWeight: 'bold' }}>{details?.precioUnitario ? `$${Number(details.precioUnitario).toFixed(2)}` : '--'}</Text>
+            <Text style={{ color: '#7F8487', fontSize: 13 }}>Precio Unitario</Text>
+          </View>
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ color: '#4CAF50', fontSize: 20, fontWeight: 'bold' }}>{details?.stock ?? '--'}</Text>
+              <FontAwesome5 name="boxes" size={24} color="#4CAF50" style={{ marginLeft: 6 }} />
+            </View>
+            <Text style={{ color: '#7F8487', fontSize: 13 }}>En Stock</Text>
+          </View>
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <Text style={{ color: '#FA9B50', fontSize: 20, fontWeight: 'bold' }}>{details?.vendidos ?? '--'}</Text>
+            <Text style={{ color: '#7F8487', fontSize: 13 }}>Vendidos</Text>
+          </View>
+        </View>
+        <View style={styles.infoCardStyle}>
+          <View style={styles.infoCardTitleRow}>
+            <View style={{ backgroundColor: '#2563eb', borderRadius: 20, padding: 6, marginRight: 8 }}>
+              <Icon name="info" size={16} color="#fff" />
+            </View>
+            <Text style={[styles.infoCardTitleText, { fontSize: 18 }]}>Información General</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Icon name="tag" size={18} color="#7F8487" style={{ marginRight: 12 }} />
+            <Text style={styles.infoLabel}>Descripción</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.infoValue}>{details?.descripcion || '--'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Icon name="layers" size={18} color="#7F8487" style={{ marginRight: 12 }} />
+            <Text style={styles.infoLabel}>Categoría</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={[styles.infoValue, { color: '#2563eb' }]}>{details?.NameCategoria || '--'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Icon2 name="copyright" size={18} color="#7F8487" style={{ marginRight: 12 }} />
+            <Text style={styles.infoLabel}>Marca</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.infoValue}>{details?.NameMarca || '--'}</Text>
+          </View>
+          {
+            hasPermissionUpdateProduct && (
+              <View style={styles.infoRow}>
+                <Icon name="truck" size={18} color="#7F8487" style={{ marginRight: 12 }} />
+                <Text style={styles.infoLabel}>Proveedor</Text>
+                <View style={{ flex: 1 }} />
+                <Text style={styles.infoValue}>{details?.NameProveedor || '--'}</Text>
+              </View>
+            )
+          }
+        </View>
+        <View style={styles.infoCardStyle}>
+          <View style={styles.infoCardTitleRow}>
+            <View style={{ backgroundColor: '#4CAF50', borderRadius: 20, padding: 6, marginRight: 8 }}>
+              <Icon name="dollar-sign" size={16} color="#fff" />
+            </View>
+            <Text style={[styles.infoCardTitleText, { fontSize: 18 }]}>Información de Precios</Text>
+          </View>
+          {
+            hasPermissionUpdateProduct && (
+              <View style={styles.infoRow}>
+                <Icon2 name="shoppingcart" size={18} color="#7F8487" style={{ marginRight: 12 }} />
+                <Text style={styles.infoLabel}>Precio de Compra</Text>
+                <View style={{ flex: 1 }} />
+                <Text style={styles.infoValue}>{details?.precioCompra ? `$${Number(details.precioCompra).toFixed(2)}` : '--'}</Text>
+              </View>
+            )
+          }
+          <View style={styles.infoRow}>
+            <Icon2 name="creditcard" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+            <Text style={styles.infoLabel}>Precio de Venta</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={[styles.infoValue, { color: '#2563eb', fontWeight: 'bold' }]}>{details?.precioUnitario ? `$${Number(details.precioUnitario).toFixed(2)}` : '--'}</Text>
+          </View>
+        </View>
+        <View style={styles.infoCardStyle}>
+          <View style={styles.infoCardTitleRow}>
+            <View style={{ backgroundColor: '#e5e7eb', borderRadius: 20, padding: 6, marginRight: 8 }}>
+              <FontAwesome5 name="clipboard-list" size={16} color="#7F8487" />
+            </View>
+            <Text style={[styles.infoCardTitleText, { fontSize: 18 }]}>Información Adicional</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <FontAwesome5 name="barcode" size={18} color="#7F8487" style={{ marginRight: 12 }} />
+            <Text style={styles.infoLabel}>Código de Barras</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.infoValue}>{details?.codigoBarras || '--'}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <FontAwesome5 name="calendar-plus" size={18} color="#7F8487" style={{ marginRight: 12 }} />
+            <Text style={styles.infoLabel}>Fecha de Creación</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.infoValue}>
+              {details?.createdAt ? new Date(details.createdAt).toLocaleDateString('es-ES') : '--'}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Icon name="edit-2" size={18} color="#7F8487" style={{ marginRight: 12 }} />
+            <Text style={styles.infoLabel}>Última Modificación</Text>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.infoValue}>
+              {details?.updatedAt ? new Date(details.updatedAt).toLocaleDateString('es-ES') : '--'}
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     </View>
   )
 }
 
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({
+  // Estilos para las cards y filas de info
+  infoCardStyle: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginHorizontal: 10,
+    marginTop: 14,
+    marginBottom: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  infoCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  infoCardTitleText: {
+    color: '#252525',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    marginBottom: 0,
+  },
+  infoLabel: {
+    color: '#7F8487',
+    fontSize: 14,
+  },
+  infoValue: {
+    color: '#252525',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+})
 

@@ -1,4 +1,4 @@
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
+import { FlatList, Pressable, StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native'
 import React, { useContext, useEffect, useState } from 'react'
 import apiClient from '../utils/client'
 import { getUser } from '../redux/userSlice';
@@ -15,43 +15,78 @@ import useFilteredArray from '../hooks/useFilteredArray';
 import { setAlert } from '../redux/alertSlice';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 import { MaterialIcons } from '@expo/vector-icons';
+import Icon from 'react-native-vector-icons/Feather';
+import Constants from 'expo-constants';
+
+const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
 const renderClientItem = ({ item, navigation, isConnected }) => {
     return (
-        <Pressable style={styles.item} onPress={() => {
-            /* if (!isConnected) {
-                return
-            }
-            navigation.navigate('DetailsClient', {
-                id: item._id,
-                name: item.nombreCompleto,
-            }) */
-        }}>
-            <View>
-                <Text style={styles.titleClient}>{item.nombreCompleto}</Text>
-                <Text style={{ fontSize: 14, color: '#7F8487' }}>Ciudad: {item.ciudad?.descripcion || 'Sin ciudad'}</Text>
-                {item.direccion && (
-                    <Text style={{ fontSize: 14, color: '#7F8487' }}>Dirección: {item.direccion}</Text>
-                )}
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View>
-                    {item.telefonos && item.telefonos.length > 0 && (
-                        <Text style={{ fontSize: 14, color: '#799351', marginLeft: 10, fontWeight: '500' }}>
-                            Tel: {item.telefonos[0]}
-                        </Text>
-                    )}
+        <TouchableOpacity
+            style={styles.clientCard}
+            onPress={() => {
+                if (!isConnected) return;
+                navigation.navigate('EditClient', { id: item._id, name: item.nombreCompleto })
+            }}
+            disabled={!isConnected}
+        >
+            <View style={styles.clientCardContent}>
+                {/* Icono */}
+                <View style={styles.clientIconContainer}>
+                    <Icon name="user" size={20} color="#fff" />
                 </View>
-                <Pressable
-                    style={{ marginLeft: 10 }}
-                    onPress={() => navigation.navigate('EditClient', { id: item._id, name: item.nombreCompleto })}
-                >
-                    <MaterialIcons name="edit" size={24} color="#799351" />
-                </Pressable>
+
+                {/* Información principal */}
+                <View style={styles.clientInfo}>
+                    <Text style={styles.clientName}>{item.nombreCompleto}</Text>
+
+                    <View style={styles.clientDetails}>
+                        <View style={styles.clientDetail}>
+                            <Icon name="map-pin" size={12} color="#7F8487" style={styles.detailIcon} />
+                            <Text style={styles.detailText}>
+                                {item.ciudad?.descripcion || 'Sin ciudad'}
+                            </Text>
+                        </View>
+
+                        {item.direccion && (
+                            <View style={styles.clientDetail}>
+                                <Icon name="home" size={12} color="#7F8487" style={styles.detailIcon} />
+                                <Text style={styles.detailText}>{item.direccion}</Text>
+                            </View>
+                        )}
+
+                        {item.telefonos && item.telefonos.length > 0 && (
+                            <View style={styles.clientDetail}>
+                                <Icon name="phone" size={12} color="#799351" style={styles.detailIcon} />
+                                <Text style={[styles.detailText, { color: '#799351' }]}>
+                                    {item.telefonos[0]}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
             </View>
-        </Pressable>
+
+            {/* Botón de editar */}
+            <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => navigation.navigate('EditClient', { id: item._id, name: item.nombreCompleto })}
+            >
+                <Icon name="chevron-right" size={20} color="#b0b0b0" />
+            </TouchableOpacity>
+        </TouchableOpacity>
     );
 }
+
+// Componente para mostrar cuando la lista está vacía
+const EmptyListComponent = ({ message, icon }) => (
+    <View style={styles.emptyContainer}>
+        <Icon name={icon || "users"} size={60} color="#d1d5db" />
+        <Text style={styles.emptyText}>{message || "No hay clientes disponibles"}</Text>
+    </View>
+);
+
+const HEADER_BLUE = '#2563eb';
 
 export default function Client({ navigation }) {
     const user = useAppSelector(getUser)
@@ -64,11 +99,13 @@ export default function Client({ navigation }) {
     const isConnected = useInternetStatus();
     const search = useInputValue('', '')
     const { offline } = useContext(OfflineContext)
+    const [isLoading, setIsLoading] = useState(true)
 
     const { hasPermission: hasPermissionReadClient, isLoading: isLoadingReadClient } = usePermissionCheck('read_client', () => { })
     const { hasPermission: hasPermissionCreateClient, isLoading: isLoadingCreateClient } = usePermissionCheck('create_client', () => { })
 
     const getClients = (skip, limit) => {
+        setIsLoading(true)
         dispatch(setLoading({
             message: `Actualizando clientes`
         }))
@@ -82,7 +119,6 @@ export default function Client({ navigation }) {
                 setData((prevData) => {
                     if (prevData) {
                         if (prevData.length === 0) {
-                            console.log('prevData', prevData)
                             return response.data
                         }
                         const newData = response.data.filter((element) => {
@@ -92,6 +128,7 @@ export default function Client({ navigation }) {
                     }
                     return []
                 })
+                setIsLoading(false)
                 dispatch(clearLoading())
             })
             .catch(e => {
@@ -101,11 +138,13 @@ export default function Client({ navigation }) {
                     message: `${e.response?.data || 'Ocurrio un error'}`,
                     type: 'error'
                 }))
+                setIsLoading(false)
                 dispatch(clearLoading())
             })
     }
 
     const getClientsSearch = (input) => {
+        setIsLoading(true)
         apiClient.post(`/client/search`, { input },
             {
                 headers: {
@@ -115,6 +154,7 @@ export default function Client({ navigation }) {
         )
             .then(response => {
                 setDataSearch(response.data)
+                setIsLoading(false)
             })
             .catch(e => {
                 console.log("error", e);
@@ -122,6 +162,7 @@ export default function Client({ navigation }) {
                     message: `${e.response?.data || 'Ocurrio un error'}`,
                     type: 'error'
                 }))
+                setIsLoading(false)
                 dispatch(clearLoading())
             })
     }
@@ -138,10 +179,9 @@ export default function Client({ navigation }) {
         }
     }, [search.value])
 
-    useEffect(() => {
-        const socket = io('http://10.0.2.2:5000')
+    /* useEffect(() => {
+        const socket = io(DB_HOST)
         socket.on('client', (socket) => {
-            /* refreshClients() */
             setData((prevData) => {
                 const exist = prevData.find((elem) => elem._id === socket.data._id)
                 if (exist) {
@@ -155,18 +195,14 @@ export default function Client({ navigation }) {
         return () => {
             socket.disconnect();
         };
-    }, [data])
+    }, [data]) */
 
     const refreshClients = () => {
         search.clearValue()
-        /* if (!offline) {
-            getClients(query.skip, query.limit)
-        } */
+        if (!offline) {
+            getClients(0, 15)
+        }
     };
-
-    /* useEffect(() => {
-        console.log('data', data)
-    }, [data]) */
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
@@ -180,68 +216,290 @@ export default function Client({ navigation }) {
         return null
     }
 
+    const renderContent = () => {
+        if (!offline) {
+            const displayData = search.value !== '' ? dataSearch : data;
+
+            return (
+                <FlatList
+                    style={styles.clientsList}
+                    data={displayData}
+                    renderItem={({ item }) => renderClientItem({ item, navigation, isConnected })}
+                    keyExtractor={(item) => item._id.toString()}
+                    contentContainerStyle={[
+                        styles.listContentContainer,
+                        displayData.length === 0 && styles.emptyListContainer
+                    ]}
+                    ListEmptyComponent={
+                        <EmptyListComponent
+                            message={isLoading ? "Cargando clientes..." : "No hay clientes disponibles"}
+                            icon={isLoading ? "loader" : "users"}
+                        />
+                    }
+                    onEndReached={() => {
+                        if (!loading.open && !isLoading) {
+                            if (search.value === '') {
+                                dispatch(setLoading({
+                                    message: `Cargando nuevos clientes`
+                                }))
+                                setQuery({ skip: query.skip + 15, limit: query.limit })
+                            }
+                        }
+                    }}
+                    onEndReachedThreshold={0.5}
+                />
+            );
+        } else {
+            // Modo sin conexión
+            return (
+                <View style={{ flex: 1 }}>
+                    <Text style={styles.offlineMessage}>Estas en modo sin conexión</Text>
+                    <EmptyListComponent message="No hay datos disponibles sin conexión" icon="wifi-off" />
+                </View>
+            );
+        }
+    };
+
     return (
-        <View>
-            {
-                !offline ?
-                    <View>
-                        <Search placeholder={'Buscar cliente'} searchInput={search} />
-                        <View style={{ paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', margin: 15 }} >
+        <View style={styles.container}>
+            {/* HEADER NUEVO */}
+            <View style={styles.headerContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10, marginRight: 10 }}>
+                            <Icon name="arrow-left" size={18} color="#fff" />
+                        </TouchableOpacity>
+                        <View>
+                            <Text style={styles.headerTitle}>Clientes</Text>
+                            <Text style={styles.headerSubtitle}>Gestión de clientes</Text>
+                        </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={styles.onlineBadge}>
+                            <View style={[styles.onlineDot, { backgroundColor: offline ? '#C7253E' : '#4CAF50' }]} />
+                            <Text style={{ color: '#fff', fontSize: 13, marginLeft: 4 }}>{offline ? 'Offline' : 'Online'}</Text>
+                        </View>
+                        <TouchableOpacity onPress={refreshClients} style={{ marginLeft: 8, padding: 4, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10 }}>
+                            <Icon name="refresh-cw" size={18} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                {/* SEARCH BAR */}
+                <View style={styles.searchBarContainer}>
+                    <Icon name="search" size={18} color="#7F8487" style={{ marginLeft: 10 }} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Buscar clientes por nombre..."
+                        placeholderTextColor="#b0b0b0"
+                        {...search}
+                    />
+                </View>
+                {/* BOTONES PRINCIPALES */}
+                {
+                    !offline && (
+                        <View style={styles.headerButtonsRow}>
                             {hasPermissionCreateClient && (
-                                <Button text={'Nuevo Cliente'} fontSize={14} width={'40%'} onPress={() => { navigation.navigate('NewClient') }} />
+                                <TouchableOpacity
+                                    style={styles.headerButton}
+                                    onPress={() => navigation.navigate('NewClient')}
+                                >
+                                    <Icon name="user-plus" size={14} color="#fff" style={styles.headerButtonIcon} />
+                                    <Text style={styles.headerButtonText}>Nuevo cliente</Text>
+                                </TouchableOpacity>
                             )}
                         </View>
-                        <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#799351', paddingHorizontal: 15 }} >Estas en modo con conexion</Text>
-                        <FlatList
-                            style={{ height: '83%' }}
-                            data={search.value !== '' ? dataSearch : data}
-                            renderItem={({ item }) => renderClientItem({ item, navigation, isConnected })}
-                            keyExtractor={(item) => item._id}
-                            onEndReached={() => {
-                                if (!loading.open) {
-                                    if (search) {
-                                        if (search.value === '') {
-                                            dispatch(setLoading({
-                                                message: `Cargando nuevos clientes`
-                                            }))
-                                            setQuery({ skip: query.skip + 15, limit: query.limit })
-                                        }
-                                    }
-                                }
-                            }}
-                        />
-                    </View>
-                    :
-                    <View>
-                        <Search placeholder={'Buscar cliente'} searchInput={search} />
-                        <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: '#C7253E', paddingHorizontal: 15 }} >Estas en modo sin conexion</Text>
-                        <FlatList
-                            style={{ height: '83%' }}
-                            data={filteredArray}
-                            renderItem={({ item }) => renderClientItem({ item, navigation, isConnected })}
-                            keyExtractor={(item) => item._id}
-                        />
-                    </View>
-            }
+                    )
+                }
+            </View>
+
+            {/* CONTENIDO PRINCIPAL */}
+            <View style={styles.contentContainer}>
+                {renderContent()}
+            </View>
         </View>
     )
 }
 
 const styles = StyleSheet.create({
-    item: {
-        padding: 10,
-        borderBottomWidth: 1,
-        borderColor: '#ddd',
-        flexDirection: 'row',
-        justifyContent: 'space-between'
+    container: {
+        flex: 1,
+        backgroundColor: '#f6f8fa',
     },
-    titleClient: {
-        fontSize: 18,
-        fontFamily: 'Cairo-Bold',
-        color: '#252525'
+    contentContainer: {
+        flex: 1,
+        paddingTop: 10,
     },
-    statsContainer: {
+    headerContainer: {
+        backgroundColor: HEADER_BLUE,
+        paddingTop: 40,
+        paddingBottom: 18,
+        paddingHorizontal: 15,
+        borderBottomLeftRadius: 18,
+        borderBottomRightRadius: 18,
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+    },
+    headerTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    headerSubtitle: {
+        color: '#e0e7ff',
+        fontSize: 13,
+    },
+    onlineBadge: {
+        backgroundColor: 'rgba(255, 255, 255, 0.18)',
+        borderRadius: 16,
         flexDirection: 'row',
-        alignItems: 'center'
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 2,
+    },
+    onlineDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+    },
+    searchBarContainer: {
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 15,
+        marginBottom: 10,
+        shadowColor: '#000',
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+    },
+    searchInput: {
+        flex: 1,
+        height: 40,
+        fontSize: 15,
+        color: '#252525',
+        paddingHorizontal: 10,
+    },
+    headerButtonsRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginTop: 10,
+    },
+    headerButton: {
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        borderRadius: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 4,
+        marginTop: 0,
+        marginBottom: 0,
+        minWidth: 110,
+        justifyContent: 'center',
+    },
+    headerButtonIcon: {
+        marginRight: 8,
+    },
+    headerButtonText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: 'bold',
+    },
+    clientsList: {
+        flex: 1,
+    },
+    listContentContainer: {
+        paddingHorizontal: 10,
+        paddingBottom: 20,
+        minHeight: '100%',
+    },
+    emptyListContainer: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    emptyText: {
+        fontSize: 16,
+        color: '#9ca3af',
+        marginTop: 12,
+        textAlign: 'center',
+    },
+    clientCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        shadowColor: '#000',
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    clientCardContent: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    clientIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        backgroundColor: '#2563eb',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    clientInfo: {
+        flex: 1,
+    },
+    clientName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#252525',
+        marginBottom: 6,
+    },
+    clientDetails: {
+        flexDirection: 'column',
+    },
+    clientDetail: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    detailIcon: {
+        marginRight: 4,
+    },
+    detailText: {
+        fontSize: 13,
+        color: '#7F8487',
+    },
+    editButton: {
+        backgroundColor: 'rgba(56, 47, 47, 0.05)',
+        borderRadius: 10,
+        padding: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    offlineMessage: {
+        fontSize: 14,
+        color: '#C7253E',
+        paddingHorizontal: 15,
+        paddingVertical: 6,
+        backgroundColor: '#ffeeee',
+        borderRadius: 8,
+        marginHorizontal: 10,
+        marginVertical: 8,
+        textAlign: 'center',
+        fontWeight: '500',
     }
 });

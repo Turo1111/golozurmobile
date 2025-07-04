@@ -11,6 +11,7 @@ import { Buffer } from 'buffer';
 import { getUser } from '../redux/userSlice'
 import useLocalStorage from '../hooks/useLocalStorage'
 import usePermissionCheck from '../hooks/usePermissionCheck'
+import Icon from 'react-native-vector-icons/Feather'
 
 const arrayBufferToBase64 = (buffer) => {
   return Buffer.from(buffer).toString('base64');
@@ -354,7 +355,35 @@ export default function PrintProduct({ open, onClose }) {
           }
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'center' }} >
-          <Button text={'IMPRIMIR'} onPress={downloadAndSharePDF} />
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#2366CB',
+              paddingVertical: 12,
+              paddingHorizontal: 20,
+              borderRadius: 10,
+              minWidth: 120,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 3,
+              elevation: 3,
+              marginTop: 10
+            }}
+            onPress={downloadAndSharePDF}
+          >
+            <Icon name="printer" size={16} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={{
+              color: '#fff',
+              fontSize: 14,
+              fontWeight: '600',
+              fontFamily: 'Cairo-Bold'
+            }}>
+              Imprimir
+            </Text>
+          </TouchableOpacity>
         </View>
       </ModalContainer>
     </View>

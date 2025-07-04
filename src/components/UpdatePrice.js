@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native'
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import Button from './Button'
 import ModalContainer from './ModalContainer';
@@ -10,6 +10,7 @@ import apiClient from '../utils/client';
 import { useDispatch } from 'react-redux';
 import { setAlert } from '../redux/alertSlice';
 import useLocalStorage from '../hooks/useLocalStorage';
+import Icon from 'react-native-vector-icons/Feather'
 import { clearLoading, setLoading } from '../redux/loadingSlice';
 
 export default function UpdatePrice({ open, onClose, updateQuery }) {
@@ -102,8 +103,68 @@ export default function UpdatePrice({ open, onClose, updateQuery }) {
         onChangeText={(text) => formik.setFieldValue('porcentaje', text)}
       />
       <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginVertical: 15 }}>
-        <Button text={'Cancelar'} onPress={onClose} />
-        <Button text={'Aceptar'} onPress={formik.handleSubmit} />
+        {/* <Button text={'Cancelar'} onPress={onClose} />
+        <Button text={'Aceptar'} onPress={onClose} /> */}
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            margin: 4,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#6B7280',
+            paddingVertical: 12,
+            paddingHorizontal: 20,
+            borderRadius: 10,
+            minWidth: 120,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3,
+            elevation: 3,
+          }}
+          onPress={onClose}
+        >
+          <Icon name="x" size={16} color="#fff" style={{ marginRight: 8 }} />
+          <Text style={{
+            color: '#fff',
+            fontSize: 14,
+            fontWeight: '600',
+            fontFamily: 'Cairo-Bold'
+          }}>
+            Cancelar
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            flex: 1,
+            margin: 4,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#2366CB',
+            paddingVertical: 12,
+            paddingHorizontal: 20,
+            borderRadius: 10,
+            minWidth: 120,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 3,
+            elevation: 3,
+          }}
+          onPress={formik.handleSubmit}
+        >
+          <Icon name="filter" size={16} color="#fff" style={{ marginRight: 8 }} />
+          <Text style={{
+            color: '#fff',
+            fontSize: 14,
+            fontWeight: '600',
+            fontFamily: 'Cairo-Bold'
+          }}>
+            Aplicar
+          </Text>
+        </TouchableOpacity>
       </View>
     </ModalContainer>
   )

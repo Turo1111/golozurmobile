@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TextInput, Pressable, FlatList, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, Modal, Dimensions } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import ArrowDown from "react-native-vector-icons/MaterialIcons";
 import apiClient from '../utils/client';
@@ -7,7 +7,10 @@ import { getUser } from '../redux/userSlice';
 import io from 'socket.io-client'
 import { setAlert } from '../redux/alertSlice'
 import useLocalStorage from '../hooks/useLocalStorage';
+import Constants from 'expo-constants';
+const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
+const { width, height } = Dimensions.get('window');
 
 export default function InputSelectAdd({ value, onChange, name, path }) {
 
@@ -20,6 +23,7 @@ export default function InputSelectAdd({ value, onChange, name, path }) {
   const [isFocused, setIsFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loading2, setLoading2] = useState(false)
+  const [inputPosition, setInputPosition] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const dispatch = useAppDispatch();
 
   const getData = () => {
@@ -31,6 +35,7 @@ export default function InputSelectAdd({ value, onChange, name, path }) {
         },
       })
       .then(response => {
+        console.log("response.data", response.data)
         setData(response.data)
         setLoading(false)
       })
@@ -132,7 +137,7 @@ export default function InputSelectAdd({ value, onChange, name, path }) {
   }, [value])
 
   useEffect(() => {
-    const socket = io('http://10.0.2.2:5000')
+    const socket = io(DB_HOST)
     socket.on(`${path}`, (socket) => {
       setData((prevData) => {
         const exist = prevData.find(elem => elem._id === socket.data._id)
@@ -155,58 +160,113 @@ export default function InputSelectAdd({ value, onChange, name, path }) {
     }
   }, [inputValue])
 
+  // Medir la posición del input para mostrar el modal correctamente
+  const measureInputPosition = (event) => {
+    if (inputRef.current) {
+      inputRef.current.measure((x, y, width, height, pageX, pageY) => {
+        setInputPosition({
+          x: pageX,
+          y: pageY + height + 2,
+          width: width,
+          height: height
+        });
+      });
+    }
+  };
+
+  const inputRef = React.useRef(null);
+
+  const openDropdown = () => {
+    getData(); // Actualizar datos cuando se abre el dropdown
+    measureInputPosition();
+    setOpen(true);
+  };
+
   return (
-    <View>
-      <TextInput placeholder={name} style={styles.input}
+    <View style={{ zIndex: 1000 }}>
+      <TextInput
+        ref={inputRef}
+        placeholder={name}
+        style={styles.input}
         value={inputValue}
         onChangeText={handleInputChange}
         focusable={isFocused}
         onFocus={handleInputFocus}
         onBlur={handleInputBlur}
       />
-      {
-        inputValue === '' ?
-          <Pressable style={{ position: 'absolute', right: 10, top: '25%' }} onPress={() => setOpen(!open)} >
-            <ArrowDown name='keyboard-arrow-down' size={28} color={'#7F8487'} />
-          </Pressable>
-          :
-          (value === '' || value === undefined) ?
-            loading2 ?
-              <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Cargando...</Text>
-              :
-              <Pressable style={{ position: 'absolute', right: 10, top: '25%' }} onPress={postValue} >
-                <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Agregar</Text>
+
+      {inputValue === '' ? (
+        <Pressable
+          style={{ position: 'absolute', right: 10, top: '25%' }}
+          onPress={openDropdown}
+        >
+          <ArrowDown name='keyboard-arrow-down' size={28} color={'#7F8487'} />
+        </Pressable>
+      ) : (
+        (value === '' || value === undefined) ? (
+          loading2 ? (
+            <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Cargando...</Text>
+          ) : (
+            <Pressable style={{ position: 'absolute', right: 10, top: '25%' }} onPress={postValue} >
+              <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Agregar</Text>
+            </Pressable>
+          )
+        ) : (
+          loading2 ? (
+            <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Cargando...</Text>
+          ) : (
+            <View style={{ position: 'absolute', right: 10, top: '25%', flexDirection: 'row' }}>
+              <Pressable onPress={patchValue} >
+                <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Modificar</Text>
               </Pressable>
-            :
-            loading2 ?
-              <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Cargando...</Text>
-              :
-              <View style={{ position: 'absolute', right: 10, top: '25%', flexDirection: 'row' }}>
-                <Pressable onPress={patchValue} >
-                  <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Modificar</Text>
-                </Pressable>
-                <Pressable onPress={cleanValue} >
-                  <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Quitar</Text>
-                </Pressable>
-              </View>
-      }
-      <View style={[styles.list, { display: open ? 'block' : 'none' }]} >
-        <ScrollView nestedScrollEnabled={true}>
-          {
-            loading ?
-              <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Cargando...</Text>
-              :
-              data.length === 0 ?
-                <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Lista Vacias</Text>
-                :
+              <Pressable onPress={cleanValue} >
+                <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>Quitar</Text>
+              </Pressable>
+            </View>
+          )
+        )
+      )}
+
+      <Modal
+        transparent={true}
+        visible={open}
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setOpen(false)}
+          activeOpacity={1}
+        >
+          <View style={[
+            styles.dropdownContainer,
+            {
+              position: 'absolute',
+              top: inputPosition.y,
+              left: inputPosition.x,
+              width: inputPosition.width
+            }
+          ]}>
+            <ScrollView nestedScrollEnabled style={styles.scrollView}>
+              {loading ? (
+                <Text style={styles.listItemText}>Cargando...</Text>
+              ) : data.length === 0 ? (
+                <Text style={styles.listItemText}>Lista Vacía</Text>
+              ) : (
                 data.map((item) => (
-                  <Pressable onPress={() => addValue(item)} key={item._id}  >
-                    <Text style={{ fontSize: 16, fontFamily: 'Cairo-Regular', color: '#7F8487', marginVertical: 5, marginStart: 15 }}>{item.descripcion}</Text>
+                  <Pressable
+                    key={item._id}
+                    style={styles.listItem}
+                    onPress={() => addValue(item)}
+                  >
+                    <Text style={styles.listItemText}>{item.descripcion}</Text>
                   </Pressable>
                 ))
-          }
-        </ScrollView>
-      </View>
+              )}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   )
 }
@@ -223,17 +283,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     backgroundColor: '#fff'
   },
-  list: {
-    position: 'absolute',
-    maxHeight: 150,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent'
+  },
+  dropdownContainer: {
+    maxHeight: 200,
     backgroundColor: '#fff',
-    width: '100%',
-    top: 40,
-    zIndex: 2,
-    paddingVertical: 10,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#d9d9d9',
-    borderBottomEndRadius: 10,
-    borderBottomLeftRadius: 10
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 10,
+  },
+  scrollView: {
+    maxHeight: 200,
+  },
+  listItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  listItemText: {
+    fontSize: 16,
+    fontFamily: 'Cairo-Regular',
+    color: '#7F8487',
   }
 })

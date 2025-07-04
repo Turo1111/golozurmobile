@@ -1,11 +1,14 @@
 import io from 'socket.io-client';
 import { useEffect, useState } from 'react';
+import Constants from 'expo-constants';
+
+const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
 const useInternetStatus = () => {
   const [isConnected, setIsConnected] = useState(true);
 
   useEffect(() => {
-    const socket = io('http://10.0.2.2:5000', { transports: ['websocket'] });
+    const socket = io(DB_HOST, { transports: ['websocket'] });
 
     socket.on('connect', () => {
       setIsConnected(true);

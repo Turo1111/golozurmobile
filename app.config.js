@@ -37,8 +37,8 @@ export default () => ({
         },
         extra: {
             // Variables de entorno personalizadas
-            API_URL: process.env.API_URL,
-            GOOGLE_MAPS_KEY: process.env.GOOGLE_MAPS_KEY,
+            DB_HOST: process.env.DB_HOST,
+            JWT_SECRET: process.env.JWT_SECRET,
             // Mantener la configuración de EAS
             eas: {
                 projectId: "cf336551-a449-4d6f-b10b-12ae0860653a"

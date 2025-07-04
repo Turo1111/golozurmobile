@@ -1,4 +1,4 @@
-import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native'
+import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import React, { useContext, useEffect, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import { getUser } from '../redux/userSlice';
@@ -19,11 +19,14 @@ import { OfflineContext } from '../context.js/contextOffline';
 import useFilteredArray from '../hooks/useFilteredArray';
 import AddProduct from '../components/AddProduct';
 import AlertPostSale from '../components/AlertPostSale';
-
+import Constants from 'expo-constants';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import usePermissionCheck from '../hooks/usePermissionCheck';
+import Icon from 'react-native-vector-icons/Feather';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
 const formatDate = (date) => {
   const day = String(date.getDate()).padStart(2, '0');
@@ -32,20 +35,49 @@ const formatDate = (date) => {
   return `${day}/${month}/${year}`;
 };
 
+
 const renderItem = ({ item, navigation, addSelectProduct }) => {
+  // Lógica de stock
+  let stockLabel = '';
+  let stockColor = '';
+  if (item.stock === 0) {
+    stockLabel = 'Sin Stock';
+    stockColor = '#C7253E';
+  } else if (item.stock > 0 && item.stock <= 5) {
+    stockLabel = `Stock Bajo: ${item.stock}`;
+    stockColor = '#FA9B50';
+  } else {
+    stockLabel = `Stock: ${item.stock}`;
+    stockColor = '#4CAF50';
+  }
   return (
-    <Pressable style={styles.item} onPress={() => addSelectProduct(item)}>
-      <View>
-        <Text style={styles.titleProduct}>{item.descripcion}</Text>
-        <Text style={{ fontSize: 14, color: '#7F8487' }}>{item.NameCategoria}</Text>
+    <Pressable style={styles.productCard} onPress={() => addSelectProduct(item)}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.productTitle}>{item.descripcion}</Text>
+        <Text style={styles.productSubtitle}>{`${item.NameCategoria || ''}${item.NameCategoria && item.NameMarca ? ' - ' : ''}${item.NameMarca || ''}`}</Text>
+        <View style={styles.productTagsRow}>
+          <View style={[styles.productTag, { backgroundColor: stockColor + '22', borderColor: stockColor }]}>
+            <Text style={{ color: stockColor, fontSize: 12 }}>{stockLabel}</Text>
+          </View>
+          <View style={[styles.productTag, { backgroundColor: '#f3f6fa', borderColor: '#2563eb' }]}>
+            <Text style={{ color: '#2563eb', fontSize: 12 }}>{`ID: ${item.codigo || (item._id ? item._id.slice(-3) : '---')}`}</Text>
+          </View>
+          <View style={[styles.productTag, { backgroundColor: '#fff3cd', borderColor: '#ffc107' }]}>
+            <Text style={{ color: '#ffc107', fontSize: 12 }}>{`Sabor: ${item.sabor || ('---')}`}</Text>
+          </View>
+        </View>
       </View>
-      <View>
-        <Text style={{ fontSize: 18, color: '#FA9B50', fontFamily: 'Cairo-Bold' }}>$ {item.precioUnitario}</Text>
-        <Text style={{ fontSize: 14, color: '#7F8487' }}>{item.NameMarca}</Text>
+      <View style={{ alignItems: 'flex-end', justifyContent: 'space-between', minWidth: 80 }}>
+        <Text style={styles.productPrice}>{`$${Number(item.precioUnitario).toFixed(2)}`}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(56, 47, 47, 0.05)', borderRadius: 10, padding: 5, marginTop: 20 }}>
+          <Icon name="chevron-right" size={20} color="#b0b0b0" />
+        </View>
       </View>
     </Pressable>
   );
 }
+
+const HEADER_BLUE = '#2563eb';
 
 export default function NewSale({ navigation }) {
 
@@ -144,7 +176,7 @@ export default function NewSale({ navigation }) {
   }, [search.value, activeBrand, activeCategorie, activeProvider])
 
   useEffect(() => {
-    const socket = io('http://10.0.2.2:5000')
+    const socket = io(DB_HOST)
     socket.on(`/product`, (socket) => {
       refreshProducts()
     })
@@ -198,6 +230,7 @@ export default function NewSale({ navigation }) {
   }
 
   const postOffline = async () => {
+    console.log('postOffline')
     let today = new Date()
     let formatToday = today.toISOString()
     createSale({ createdAt: formatToday, itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value })
@@ -205,6 +238,7 @@ export default function NewSale({ navigation }) {
   }
 
   const postSale = async () => {
+    console.log('postSale')
     if (lineaVenta.length === 0 || total <= 0) {
       dispatch(setAlert({
         message: `No se agregaron productos al carrito`,
@@ -232,6 +266,7 @@ export default function NewSale({ navigation }) {
       }
     })
       .then((r) => {
+
         dispatch(clearLoading());
       })
       .catch((e) => { console.log('error post sale', e); dispatch(clearLoading()); })
@@ -239,15 +274,24 @@ export default function NewSale({ navigation }) {
   }
 
   const generatePdf = async (cliente) => {
+    console.log("generatePdf", cliente, offline)
     let details = undefined;
     if (offline) {
+      dispatch(setLoading({
+        message: `Obteniendo venta`
+      }))
       try {
+        console.log("offline")
         const jsonValue = await AsyncStorage.getItem('saleStorage');
+        console.log("jsonValue", jsonValue)
         if (jsonValue !== null) {
           const value = JSON.parse(jsonValue);
           details = await value.find(elem => elem.cliente === cliente);
+          console.log("details", details)
         }
+        dispatch(clearLoading());
       } catch (e) {
+        dispatch(clearLoading());
         dispatch(setAlert({
           message: 'Hubo un error al obtener la venta 1',
           type: 'error'
@@ -408,7 +452,7 @@ export default function NewSale({ navigation }) {
   };
 
   useEffect(() => {
-    const socket = io('http://10.0.2.2:5000')
+    const socket = io(DB_HOST)
     socket.on(`/sale`, (socket) => {
     })
     return () => {
@@ -422,8 +466,38 @@ export default function NewSale({ navigation }) {
 
   return (
     <SafeAreaView style={styles.content}  >
-      <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={() => { !offline && setOpenFilter(true) }} />
-      <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: `${offline ? '#C7253E' : '#799351'}`, paddingHorizontal: 15 }} >{offline ? 'Estas en modo sin conexion' : 'Estas en modo con conexion'}</Text>
+      {/* Header - No modificar */}
+      <View style={{ backgroundColor: '#2563eb', borderBottomLeftRadius: 18, borderBottomRightRadius: 18, paddingTop: 50, paddingBottom: 18, paddingHorizontal: 15, elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10, marginRight: 10 }}>
+              <Icon name="arrow-left" size={18} color="#fff" />
+            </TouchableOpacity>
+            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>Nueva Venta</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.18)', borderRadius: 16, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 2 }}>
+              <View style={[styles.onlineDot, { backgroundColor: offline ? '#C7253E' : '#4CAF50' }]} />
+              <Text style={{ color: '#fff', fontSize: 13, marginLeft: 4 }}>{offline ? 'Offline' : 'Online'}</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.searchBarContainer}>
+          <Icon name="search" size={18} color="#7F8487" style={{ marginLeft: 10 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar productos, categorías, marcas..."
+            placeholderTextColor="#b0b0b0"
+            {...search}
+          />
+          <TouchableOpacity onPress={() => setOpenFilter(true)} style={{ marginRight: 10 }}>
+            <Icon name="filter" size={18} color="#7F8487" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* <Search placeholder={'Buscar producto'} searchInput={search} handleOpenFilter={() => { !offline && setOpenFilter(true) }} />
+      <Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', color: `${offline ? '#C7253E' : '#799351'}`, paddingHorizontal: 15 }} >{offline ? 'Estas en modo sin conexion' : 'Estas en modo con conexion'}</Text> */}
       <FlatList
         style={{ height: '83%' }}
         data={
@@ -451,28 +525,11 @@ export default function NewSale({ navigation }) {
       />
       {
         selectProduct &&
-        <AddProduct open={openAddProduct} onClose={() => setOpenAddProduct(false)} product={selectProduct} addCart={(item, cantidad, totalLV, precioUnitario) => addCart(item, cantidad, totalLV, precioUnitario)}
-        /* onChangePrecioUnitario={(value, idProduct)=>{
-          let parseValue = parseFloat(value)
-          if (value === '') {
-            parseValue = 0
-          }
-          console.log(parseValue, idProduct)
-          setLineaVenta((prevData)=>{
-            const itemSale = prevData.find(elem=>elem._id === idProduct)
-            if(!itemSale){
-              return prevData
-            }
-            const newItemSale = {...itemSale, precioUnitario: parseValue, total: itemSale?.cantidad*parseValue}
-            const prevFiltered = prevData.map((elem)=>elem._id===idProduct ? newItemSale : elem)
-            return prevFiltered
-          })
-        }} */
-        />
+        <AddProduct open={openAddProduct} onClose={() => setOpenAddProduct(false)} product={selectProduct} addCart={(item, cantidad, totalLV, precioUnitario) => addCart(item, cantidad, totalLV, precioUnitario)} />
       }
       {
         openAlertPost &&
-        <AlertPostSale open={openAlertPost} onClose={() => navigation.navigate('Sale')} post={() => navigation.navigate('Sale')} print={() => generatePdf()} />
+        <AlertPostSale open={openAlertPost} onClose={() => navigation.navigate('Sale')} post={() => navigation.navigate('Sale')} print={() => generatePdf(cliente.value)} />
       }
       <ResumeBottomSheet onPress={() => setOpenBS(true)} totalCart={total} longCart={lineaVenta.length} />
       <MyBottomSheet open={openBS} onClose={() => setOpenBS(false)} fullScreen={true} >
@@ -527,5 +584,70 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: '#Fff',
     height: '100%'
+  },
+  searchBarContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 15,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    fontSize: 15,
+    color: '#252525',
+    paddingHorizontal: 10,
+  },
+  productCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 10,
+    marginVertical: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  productTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#252525',
+  },
+  productSubtitle: {
+    fontSize: 13,
+    color: '#7F8487',
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  productTagsRow: {
+    flexDirection: 'row',
+    marginTop: 6,
+    gap: 8,
+  },
+  productTag: {
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    marginRight: 8,
+    borderWidth: 1,
+  },
+  productPrice: {
+    fontSize: 20,
+    color: '#2563eb',
+    fontWeight: 'bold',
+  },
+  onlineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });

@@ -1,9 +1,12 @@
 import axios from "axios";
 import { store } from '../redux/store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+
+const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
 const apiClient = axios.create({
-  baseURL: 'http://10.0.2.2:5000',
+  baseURL: DB_HOST,
   timeout: 7000
 });
 
