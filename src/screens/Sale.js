@@ -54,12 +54,25 @@ export default function Sale({ navigation }) {
   const [dataSearch, setDataSearch] = useState([])
   const [error, setError] = useState(false)
   const [query, setQuery] = useState({ skip: 0, limit: 25 })
+  const [showUserDropdown, setShowUserDropdown] = useState(false)
+  const [users, setUsers] = useState([])
+  const [selectedUser, setSelectedUser] = useState(null)
 
   const { hasPermission: hasPermissionReadSale, isLoading: isLoadingReadSale } = usePermissionCheck('read_sale', () => { })
   const { hasPermission: hasPermissionCreateSale, isLoading: isLoadingCreateSale } = usePermissionCheck('create_sale', () => { })
   const { hasPermission: hasPermissionUpdateSale, isLoading: isLoadingUpdateSale } = usePermissionCheck('update_sale', () => { })
 
   const { offline, sales } = useContext(OfflineContext)
+
+  const getUsers = async () => {
+    try {
+      const response = await apiClient.get('/user/get/all');
+      console.log("response users", response.data)
+      setUsers(response.data);
+    } catch (e) {
+      console.log("error getUsers", e)
+    }
+  }
 
   const getSale = async (skip, limit) => {
     dispatch(setLoading({
@@ -72,7 +85,6 @@ export default function Sale({ navigation }) {
             Authorization: `Bearer ${user.token || userStorage.token}`
           },
         });
-      console.log("response", response.data.array[0])
       setData((prevData) => {
         if (prevData) {
           if (prevData.length === 0) {
@@ -93,13 +105,13 @@ export default function Sale({ navigation }) {
     }
   }
 
-  const getSaleSearch = async (input) => {
+  const getSaleSearch = async (input, filterUser = null) => {
     dispatch(setLoading({
       message: `Actualizando ventas`
     }))
     try {
       console.log("input", input)
-      const response = await apiClient.post(`/sale/search`, { input });
+      const response = await apiClient.post(`/sale/search`, { input, filterUser });
       setDataSearch(response.data);
     } catch (e) {
       console.log("error sale search", e);
@@ -109,6 +121,17 @@ export default function Sale({ navigation }) {
     }
   }
 
+  const clearUserFilter = () => {
+    setSelectedUser(null);
+    setQuery({ skip: 0, limit: 25 });
+    
+    // Ejecutar búsqueda sin filtro de usuario
+    if (search.value !== '') {
+      getSaleSearch(search.value);
+    } else {
+      getSale(0, 25);
+    }
+  }
 
   useEffect(() => {
   }, [navigation.isFocused()])
@@ -116,9 +139,9 @@ export default function Sale({ navigation }) {
   useEffect(() => {
     let timeoutId;
 
-    if (search.value !== '') {
+    if (search.value !== '' || selectedUser !== null) {
       timeoutId = setTimeout(() => {
-        getSaleSearch(search.value);
+        getSaleSearch(search.value, selectedUser?._id);
       }, 1000);
     }
 
@@ -127,13 +150,19 @@ export default function Sale({ navigation }) {
         clearTimeout(timeoutId);
       }
     };
-  }, [search.value]);
+  }, [search.value, selectedUser]);
+
+  useEffect(() => {
+    if (user && !offline) {
+      getUsers();
+    }
+  }, [user, offline]);
 
   useEffect(() => {
     if (user && !offline) {
       getSale(query.skip, query.limit)
     }
-  }, [query, offline])
+  }, [query, offline, selectedUser])
 
   useEffect(() => {
     const socket = io(DB_HOST)
@@ -407,11 +436,63 @@ export default function Sale({ navigation }) {
           <Icon name="search" size={18} color="#7F8487" style={{ marginLeft: 10 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Buscar ventas"
+            placeholder={selectedUser ? `Filtrando por: ${selectedUser.nickname}` : "Buscar ventas"}
             placeholderTextColor="#b0b0b0"
             {...search}
           />
+          <TouchableOpacity 
+            onPress={() => setShowUserDropdown(!showUserDropdown)}
+            style={styles.dropdownButton}
+          >
+            <Icon name={showUserDropdown ? "chevron-up" : "chevron-down"} size={18} color="#7F8487" />
+          </TouchableOpacity>
         </View>
+        
+        {/* USER DROPDOWN */}
+        {showUserDropdown && (
+          <View style={styles.dropdownContainer}>
+            <View style={styles.dropdownHeader}>
+              <Text style={styles.dropdownTitle}>Filtrar por usuario</Text>
+              {selectedUser && (
+                <TouchableOpacity onPress={clearUserFilter} style={styles.clearFilterButton}>
+                  <Text style={styles.clearFilterText}>Limpiar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <FlatList
+              data={users}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.userItem,
+                    selectedUser?._id === item._id && styles.selectedUserItem
+                  ]}
+                  onPress={() =>{ setSelectedUser(item); setShowUserDropdown(false)}}
+                >
+                  <View style={styles.userInfo}>
+                    <View style={styles.userInitials}>
+                      <Text style={styles.userInitialsText}>
+                        {getInitials(item.nickname)}
+                      </Text>
+                    </View>
+                    <View style={styles.userDetails}>
+                      <Text style={styles.userName}>{item.nickname}</Text>
+                      {/* {item.role && (
+                        <Text style={styles.userPhone}>{item.role}</Text>
+                      )} */}
+                    </View>
+                  </View>
+                  {selectedUser?._id === item._id && (
+                    <Icon name="check" size={16} color="#2563eb" />
+                  )}
+                </TouchableOpacity>
+              )}
+              style={styles.userList}
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        )}
         {/* BOTONES PRINCIPALES */}
         <View style={styles.headerButtonsRow}>
           {hasPermissionCreateSale && (
@@ -432,7 +513,7 @@ export default function Sale({ navigation }) {
             <View style={{ flex: 1, paddingHorizontal: 15, paddingTop: 10 }}>
               <FlatList
                 style={{ flex: 1 }}
-                data={search.value !== '' ? dataSearch : data}
+                data={(search.value !== '' || selectedUser !== null) ? dataSearch : data}
                 renderItem={({ item }) => (
                   <SaleItem
                     item={item}
@@ -570,6 +651,93 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     textAlign: 'center',
     fontWeight: '500',
-  }
+  },
+  dropdownButton: {
+    padding: 10,
+    marginRight: 5,
+  },
+  dropdownContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    marginTop: 5,
+    marginBottom: 10,
+    maxHeight: 300,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  dropdownTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#252525',
+  },
+  clearFilterButton: {
+    backgroundColor: '#ff4757',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  clearFilterText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  userList: {
+    maxHeight: 250,
+  },
+  userItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f8f9fa',
+  },
+  selectedUserItem: {
+    backgroundColor: '#f0f8ff',
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  userInitials: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  userInitialsText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#252525',
+    marginBottom: 2,
+  },
+  userPhone: {
+    fontSize: 13,
+    color: '#6b7280',
+  },
 })
 
