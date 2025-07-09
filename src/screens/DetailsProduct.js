@@ -150,6 +150,7 @@ export default function DetailsProduct({ route, navigation }) {
   useEffect(() => {
     const socket = io(DB_HOST)
     socket.on(`product`, (socket) => {
+      console.log("socket product", socket)
       setDetails((prevData) => {
         if (socket.data._id === id) {
           return socket.data

@@ -11,6 +11,10 @@ import { TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import Ionicons from 'react-native-vector-icons/Ionicons'
 import { OfflineContext } from '../context.js/contextOffline';
+import { io } from 'socket.io-client';
+import Constants from 'expo-constants';
+
+const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
 
 export default function DetailsSale({ route, navigation }) {
@@ -43,6 +47,22 @@ export default function DetailsSale({ route, navigation }) {
   useEffect(() => {
     getDetails()
   }, [user, userStorage])
+
+  useEffect(() => {
+    const socket = io(DB_HOST)
+    socket.on(`sale`, (socketData) => {
+      // Verificar si la venta que escucha es la misma que tiene cargada
+      if (socketData.data && socketData.data._id === id) {
+        // Actualizar los detalles de la venta con los nuevos datos
+        setDetails(socketData.data)
+      }
+    })
+    return () => {
+      socket.disconnect();
+    };
+  }, [id])
+
+  
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
