@@ -294,6 +294,16 @@ export default function DetailsProduct({ route, navigation }) {
             <View style={{ flex: 1 }} />
             <Text style={[styles.infoValue, { color: '#2563eb', fontWeight: 'bold' }]}>{details?.precioUnitario ? `$${Number(details.precioUnitario).toFixed(2)}` : '--'}</Text>
           </View>
+          {
+            hasPermissionUpdateProduct && (
+              <View style={styles.infoRow}>
+                <Icon2 name="creditcard" size={18} color="#2563eb" style={{ marginRight: 12 }} />
+                <Text style={styles.infoLabel}>Precio de Descuento</Text>
+                <View style={{ flex: 1 }} />
+                <Text style={[styles.infoValue, { color: '#2563eb', fontWeight: 'bold' }]}>{details?.precioDescuento ? `$${Number(details.precioDescuento).toFixed(2)}` : '--'}</Text>
+              </View>
+            )
+          }
         </View>
         <View style={styles.infoCardStyle}>
           <View style={styles.infoCardTitleRow}>

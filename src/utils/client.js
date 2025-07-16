@@ -2,6 +2,8 @@ import axios from "axios";
 import { store } from '../redux/store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { setAlert } from '../redux/alertSlice';
+import { clearLoading } from '../redux/loadingSlice';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 

@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, Modal, TouchableOpacity } from 'react-native'
+import { StyleSheet, Text, View, Modal, TouchableOpacity, ScrollView } from 'react-native'
 import React from 'react'
 import AntDesign from 'react-native-vector-icons/AntDesign'
 import Feather from 'react-native-vector-icons/Feather'
@@ -27,7 +27,7 @@ export default function ModalContainer({ children, openModal, width, height, tit
                             </TouchableOpacity>
                         </View>
                     }
-                    <View style={styles.contentContainer}>
+                    <View style={styles.contentContainer} showsVerticalScrollIndicator={false}>
                         {children}
                     </View>
                 </View>
@@ -39,7 +39,7 @@ export default function ModalContainer({ children, openModal, width, height, tit
 const styles = StyleSheet.create({
     modalView: {
         marginHorizontal: 10,
-        marginTop: '10%',
+        marginTop: '5%',
         margin: 1,
         backgroundColor: "white",
         borderRadius: 15,
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 4,
         elevation: 5,
-        maxHeight: '85%',
+        maxHeight: '95%',
         overflow: 'hidden'
     },
     headerContainer: {
@@ -83,5 +83,7 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         padding: 15,
+        position: 'relative',
+        overflow: 'scroll'
     }
 })

@@ -1,7 +1,7 @@
 import { FlatList, Pressable, StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native'
 import React, { useContext, useEffect, useState } from 'react'
 import apiClient from '../utils/client'
-import { getUser } from '../redux/userSlice';
+import { clearUser, getUser } from '../redux/userSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
 import Search from '../components/Search';
@@ -32,14 +32,14 @@ const renderUserItem = ({ item, navigation, isConnected }) => {
 
     return (
         <TouchableOpacity
-            style={styles.userCard}
+            style={[styles.userCard, { backgroundColor: item.isActive ? '#fff' : '#FFB3B3' }]}
             onPress={() => {
                 if (!isConnected) return;
                 navigation.navigate('EditUser', { id: item._id, name: item.nickname })
             }}
             disabled={!isConnected}
         >
-            <View style={styles.userCardContent}>
+            <View style={[styles.userCardContent]}>
                 {/* Avatar/Icono */}
                 <View style={styles.userIconContainer}>
                     <Icon name="user" size={24} color="#fff" />
@@ -48,7 +48,7 @@ const renderUserItem = ({ item, navigation, isConnected }) => {
                 {/* Información principal */}
                 <View style={styles.userInfo}>
                     <View style={styles.userNameRow}>
-                        <Text style={styles.userName}>{item.nickname}</Text>
+                        <Text style={[styles.userName, { color: item.isActive ? '#252525' : '#C7253E' }]}>{item.nickname}</Text>
                         <View style={[styles.roleTag, { backgroundColor: `${roleColor}22`, borderColor: roleColor }]}>
                             <Text style={[styles.roleText, { color: roleColor }]}>{item.nameRole || 'Sin rol'}</Text>
                         </View>
@@ -92,7 +92,7 @@ const BUTTON_TEXT = '#fff';
 
 export default function Users({ navigation }) {
     const user = useAppSelector(getUser)
-    const { data: userStorage } = useLocalStorage([], 'user')
+    const { data: userStorage, clearData } = useLocalStorage([], 'user')
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
     const [data, setData] = useState([])
@@ -106,7 +106,15 @@ export default function Users({ navigation }) {
     const { hasPermission: hasPermissionReadUser, isLoading: isLoadingReadUser } = usePermissionCheck('read_user', () => { })
     const { hasPermission: hasPermissionCreateUser, isLoading: isLoadingCreateUser } = usePermissionCheck('create_user', () => { })
 
-
+    const logOut = async () => {
+        try {
+            await clearData();
+            await dispatch(clearUser());
+        } catch (error) {
+            console.error(error);
+        }
+        navigation.navigate('Login');
+    };
 
     const getUsers = (skip, limit) => {
         setIsLoading(true)
@@ -138,6 +146,9 @@ export default function Users({ navigation }) {
             .catch(e => {
                 console.log("error", e);
                 console.log('error user', e.response?.data)
+                if (e.response.data === 'USUARIO_NO_ACTIVO') {
+                    logOut()
+                }
                 dispatch(setAlert({
                     message: `${e.response?.data || 'Ocurrio un error'}`,
                     type: 'error'
@@ -162,6 +173,9 @@ export default function Users({ navigation }) {
             })
             .catch(e => {
                 console.log("error", e);
+                if (e.response.data === 'USUARIO_NO_ACTIVO') {
+                    logOut()
+                }
                 dispatch(setAlert({
                     message: `${e.response?.data || 'Ocurrio un error'}`,
                     type: 'error'

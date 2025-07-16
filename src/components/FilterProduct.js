@@ -5,14 +5,16 @@ import ModalContainer from './ModalContainer';
 import InputSelect from './InputSelect';
 import { useFormik } from 'formik';
 import { useAppSelector } from '../redux/hook';
-import { getUser } from '../redux/userSlice';
+import { clearUser, getUser } from '../redux/userSlice';
 import apiClient from '../utils/client';
 import { useDispatch } from 'react-redux';
 import { clearLoading, setLoading } from '../redux/loadingSlice'
 import Icon from 'react-native-vector-icons/Feather'
 import Icon2 from 'react-native-vector-icons/AntDesign';
+import useLocalStorage from '../hooks/useLocalStorage';
+import usePermissionCheck from '../hooks/usePermissionCheck';
 
-export default function FilterProduct({ open, onClose, activeBrand, activeCategorie, activeProvider, selectCategorie, selectBrand, selectProvider }) {
+export default function FilterProduct({ open, onClose, activeBrand, activeCategorie, activeProvider, selectCategorie, selectBrand, selectProvider, logout }) {
 
   const user = useAppSelector(getUser)
   const dispatch = useDispatch()
@@ -22,6 +24,7 @@ export default function FilterProduct({ open, onClose, activeBrand, activeCatego
   const [showCategories, setShowCategories] = useState(true)
   const [showBrands, setShowBrands] = useState(false)
   const [showProviders, setShowProviders] = useState(false)
+  const { hasPermission: hasPermissionUpdateProduct, isLoading: isLoadingUpdateProduct } = usePermissionCheck('update_product', () => { })
 
   const getCategorie = () => {
     dispatch(setLoading({
@@ -73,200 +76,227 @@ export default function FilterProduct({ open, onClose, activeBrand, activeCatego
       height={'auto'}
     >
       {/* CATEGORIAS */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-        <Icon name="layers" size={18} color="#716A6A" style={{ marginRight: 8 }} />
-        <Text style={{ fontSize: 16, fontFamily: 'Cairo-Bold', color: '#716A6A' }}>CATEGORIAS</Text>
-        <TouchableOpacity
-          style={{ marginLeft: 'auto' }}
-          onPress={() => setShowCategories(!showCategories)}
-        >
-          <Icon
-            name={showCategories ? "chevron-down" : "chevron-right"}
-            size={20}
-            color="#716A6A"
+      <View style={{ maxHeight: '100%' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <Icon name="layers" size={18} color="#716A6A" style={{ marginRight: 8 }} />
+          <Text style={{ fontSize: 16, fontFamily: 'Cairo-Bold', color: '#716A6A' }}>CATEGORIAS</Text>
+          <TouchableOpacity
+            style={{ marginLeft: 'auto' }}
+            onPress={() => setShowCategories(!showCategories)}
+          >
+            <Icon
+              name={showCategories ? "chevron-down" : "chevron-right"}
+              size={20}
+              color="#716A6A"
+            />
+          </TouchableOpacity>
+        </View>
+        {showCategories && (
+          <FlatList
+            data={categorie}
+            numColumns={2}
+            key={`categories-${categorie.length}`}
+            columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 8 }}
+            renderItem={({ item }) =>
+              <View style={styles.itemContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.item,
+                    activeCategorie === item._id ? styles.activeItem : styles.inactiveItem
+                  ]}
+                  onPress={() => selectCategorie(item)}
+                >
+                  <Text style={[
+                    styles.itemText,
+                    activeCategorie === item._id ? styles.activeText : styles.inactiveText
+                  ]}>
+                    {item.descripcion}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            }
+            keyExtractor={(item) => item._id.toString()}
+            contentContainerStyle={{ paddingVertical: 4 }}
+            style={{ height: 180 }}
           />
-        </TouchableOpacity>
+        )}
       </View>
-      {showCategories && (
-        <FlatList
-          data={categorie}
-          numColumns={2}
-          key={`categories-${categorie.length}`}
-          columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 8 }}
-          renderItem={({ item }) =>
-            <View style={styles.itemContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.item,
-                  activeCategorie === item._id ? styles.activeItem : styles.inactiveItem
-                ]}
-                onPress={() => selectCategorie(item)}
-              >
-                <Text style={[
-                  styles.itemText,
-                  activeCategorie === item._id ? styles.activeText : styles.inactiveText
-                ]}>
-                  {item.descripcion}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          }
-          keyExtractor={(item) => item._id.toString()}
-          contentContainerStyle={{ paddingVertical: 4 }}
-          style={{ height: '50%' }}
-        />
-      )}
       {/* MARCAS */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-        <Icon2 name="copyright" size={18} color="#716A6A" style={{ marginRight: 8 }} />
-        <Text style={{ fontSize: 16, fontFamily: 'Cairo-Bold', color: '#716A6A' }}>MARCAS</Text>
-        <TouchableOpacity
-          style={{ marginLeft: 'auto' }}
-          onPress={() => setShowBrands(!showBrands)}
-        >
-          <Icon
-            name={showBrands ? "chevron-down" : "chevron-right"}
-            size={20}
-            color="#716A6A"
+      <View style={{ maxHeight: '100%' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <Icon2 name="copyright" size={18} color="#716A6A" style={{ marginRight: 8 }} />
+          <Text style={{ fontSize: 16, fontFamily: 'Cairo-Bold', color: '#716A6A' }}>MARCAS</Text>
+          <TouchableOpacity
+            style={{ marginLeft: 'auto' }}
+            onPress={() => setShowBrands(!showBrands)}
+          >
+            <Icon
+              name={showBrands ? "chevron-down" : "chevron-right"}
+              size={20}
+              color="#716A6A"
+            />
+          </TouchableOpacity>
+        </View>
+        {showBrands && (
+          <FlatList
+            data={brand}
+            numColumns={2}
+            key={`brands-${brand.length}`}
+            columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 8 }}
+            renderItem={({ item }) =>
+              <View style={styles.itemContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.item,
+                    activeBrand === item._id ? styles.activeItem : styles.inactiveItem
+                  ]}
+                  onPress={() => selectBrand(item)}
+                >
+                  <Text style={[
+                    styles.itemText,
+                    activeBrand === item._id ? styles.activeText : styles.inactiveText
+                  ]}>
+                    {item.descripcion}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            }
+            keyExtractor={(item) => item._id.toString()}
+            contentContainerStyle={{ paddingVertical: 4 }}
+            style={{ height: 180 }}
           />
-        </TouchableOpacity>
+        )}
       </View>
-      {showBrands && (
-        <FlatList
-          data={brand}
-          numColumns={2}
-          key={`brands-${brand.length}`}
-          columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 8 }}
-          renderItem={({ item }) =>
-            <View style={styles.itemContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.item,
-                  activeBrand === item._id ? styles.activeItem : styles.inactiveItem
-                ]}
-                onPress={() => selectBrand(item)}
-              >
-                <Text style={[
-                  styles.itemText,
-                  activeBrand === item._id ? styles.activeText : styles.inactiveText
-                ]}>
-                  {item.descripcion}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          }
-          keyExtractor={(item) => item._id.toString()}
-          contentContainerStyle={{ paddingVertical: 4 }}
-          style={{ height: '50%' }}
-        />
-      )}
       {/* PROVEEDORES */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-        <Icon name="truck" size={18} color="#716A6A" style={{ marginRight: 8 }} />
-        <Text style={{ fontSize: 16, fontFamily: 'Cairo-Bold', color: '#716A6A' }}>PROVEEDORES</Text>
-        <TouchableOpacity
-          style={{ marginLeft: 'auto' }}
-          onPress={() => setShowProviders(!showProviders)}
-        >
-          <Icon
-            name={showProviders ? "chevron-down" : "chevron-right"}
-            size={20}
-            color="#716A6A"
-          />
-        </TouchableOpacity>
-      </View>
-      {showProviders && (
-        <FlatList
-          data={provider}
-          numColumns={2}
-          key={`providers-${provider.length}`}
-          columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 8 }}
-          renderItem={({ item }) =>
-            <View style={styles.itemContainer}>
+      <View style={{ maxHeight: '100%', marginBottom: 80 }}>
+        {
+          hasPermissionUpdateProduct && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <Icon name="truck" size={18} color="#716A6A" style={{ marginRight: 8 }} />
+              <Text style={{ fontSize: 16, fontFamily: 'Cairo-Bold', color: '#716A6A' }}>PROVEEDORES</Text>
               <TouchableOpacity
-                style={[
-                  styles.item,
-                  activeProvider === item._id ? styles.activeItem : styles.inactiveItem
-                ]}
-                onPress={() => selectProvider(item)}
+                style={{ marginLeft: 'auto' }}
+                onPress={() => setShowProviders(!showProviders)}
               >
-                <Text style={[
-                  styles.itemText,
-                  activeProvider === item._id ? styles.activeText : styles.inactiveText
-                ]}>
-                  {item.descripcion}
-                </Text>
+                <Icon
+                  name={showProviders ? "chevron-down" : "chevron-right"}
+                  size={20}
+                  color="#716A6A"
+                />
               </TouchableOpacity>
             </View>
-          }
-          keyExtractor={(item) => item._id.toString()}
-          contentContainerStyle={{ paddingVertical: 4 }}
-          style={{ height: '50%' }}
-        />
-      )}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-        {/* <Button text={'Cancelar'} onPress={onClose} />
-        <Button text={'Aceptar'} onPress={onClose} /> */}
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            margin: 4,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#6B7280',
-            paddingVertical: 12,
-            paddingHorizontal: 20,
-            borderRadius: 10,
-            minWidth: 120,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 3,
-            elevation: 3,
-          }}
-          onPress={onClose}
-        >
-          <Icon name="x" size={16} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={{
-            color: '#fff',
-            fontSize: 14,
-            fontWeight: '600',
-            fontFamily: 'Cairo-Bold'
-          }}>
-            Cancelar
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            margin: 4,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#2366CB',
-            paddingVertical: 12,
-            paddingHorizontal: 20,
-            borderRadius: 10,
-            minWidth: 120,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.1,
-            shadowRadius: 3,
-            elevation: 3,
-          }}
-          onPress={onClose}
-        >
-          <Icon name="filter" size={16} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={{
-            color: '#fff',
-            fontSize: 14,
-            fontWeight: '600',
-            fontFamily: 'Cairo-Bold'
-          }}>
-            Aplicar
-          </Text>
-        </TouchableOpacity>
+          )
+
+        }
+        {showProviders && (
+          <FlatList
+            data={provider}
+            numColumns={2}
+            key={`providers-${provider.length}`}
+            columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 8 }}
+            renderItem={({ item }) =>
+              <View style={styles.itemContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.item,
+                    activeProvider === item._id ? styles.activeItem : styles.inactiveItem
+                  ]}
+                  onPress={() => selectProvider(item)}
+                >
+                  <Text style={[
+                    styles.itemText,
+                    activeProvider === item._id ? styles.activeText : styles.inactiveText
+                  ]}>
+                    {item.descripcion}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            }
+            keyExtractor={(item) => item._id.toString()}
+            contentContainerStyle={{ paddingVertical: 4 }}
+            style={{ height: 180 }}
+          />
+        )}
+      </View>
+      <View style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: '#fff',
+        paddingBottom: 20,
+        paddingTop: 10,
+        paddingHorizontal: 10,
+        borderBottomLeftRadius: 15,
+        borderBottomRightRadius: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+        elevation: 8,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              margin: 4,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#6B7280',
+              paddingVertical: 12,
+              paddingHorizontal: 20,
+              borderRadius: 10,
+              minWidth: 120,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 3,
+              elevation: 3,
+            }}
+            onPress={onClose}
+          >
+            <Icon name="x" size={16} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={{
+              color: '#fff',
+              fontSize: 14,
+              fontWeight: '600',
+              fontFamily: 'Cairo-Bold'
+            }}>
+              Cancelar
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              margin: 4,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#2366CB',
+              paddingVertical: 12,
+              paddingHorizontal: 20,
+              borderRadius: 10,
+              minWidth: 120,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 3,
+              elevation: 3,
+            }}
+            onPress={onClose}
+          >
+            <Icon name="filter" size={16} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={{
+              color: '#fff',
+              fontSize: 14,
+              fontWeight: '600',
+              fontFamily: 'Cairo-Bold'
+            }}>
+              Aplicar
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ModalContainer>
   )

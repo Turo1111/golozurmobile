@@ -20,6 +20,7 @@ const SaleItem = ({
     onDownloadPDF,
     onGeneratePDF
 }) => {
+
     return (
         <TouchableOpacity
             style={styles.saleCard}
@@ -44,6 +45,14 @@ const SaleItem = ({
                     </View>
                 </View>
             </View>
+            <View style={[styles.saleCardFooter, { marginTop: 0 }]}>
+                <View style={styles.saleDetails}>
+                    <View style={styles.saleDetailItem}>
+                        <Icon name="user" size={12} color="#757575" style={{ marginRight: 4 }} />
+                        <Text style={styles.saleDetailText}>{item.userCreate || 'No se cargo'}</Text>
+                    </View>
+                </View>
+            </View>
 
             <View style={styles.saleCardFooter}>
                 <View style={styles.saleDetails}>
@@ -63,13 +72,13 @@ const SaleItem = ({
                             </View>
                             <View style={styles.saleDetailItem}>
                                 <Icon name="shopping-bag" size={12} color="#757575" style={{ marginRight: 4 }} />
-                                <Text style={styles.saleDetailText}>{item.itemsLength || 0} productos</Text>
+                                <Text style={styles.saleDetailText}>{item.itemsLength || '?'} productos</Text>
                             </View>
                         </>
                     ) : (
                         <View style={styles.saleDetailItem}>
                             <Icon name="shopping-bag" size={12} color="#757575" style={{ marginRight: 4 }} />
-                            <Text style={styles.saleDetailText}>{item.itemsSale?.length || 0} productos</Text>
+                            <Text style={styles.saleDetailText}>{item.itemsSale?.length || '?'} productos</Text>
                         </View>
                     )}
                 </View>

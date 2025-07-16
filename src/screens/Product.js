@@ -1,7 +1,7 @@
 import { FlatList, Pressable, StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native'
 import React, { useContext, useEffect, useState } from 'react'
 import apiClient from '../utils/client'
-import { getUser } from '../redux/userSlice';
+import { clearUser, getUser } from '../redux/userSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
 import Search from '../components/Search';
@@ -50,13 +50,14 @@ const renderItem = ({ item, navigation, offline }) => {
         <Text style={styles.productSubtitle}>{`${item.NameCategoria || ''}${item.NameCategoria && item.NameMarca ? ' - ' : ''}${item.NameMarca || ''}`}</Text>
         <View style={styles.productTagsRow}>
           <View style={[styles.productTag, { backgroundColor: stockColor + '22', borderColor: stockColor }]}>
-            <Text style={{ color: stockColor, fontSize: 12 }}>{stockLabel}</Text>
+            {/* <Text style={{ color: stockColor, fontSize: 12 }}>{stockLabel}</Text> */}
+            <Text style={{ color: stockColor, fontSize: 12 }}>Stock: Sin definir</Text>
           </View>
-          <View style={[styles.productTag, { backgroundColor: '#f3f6fa', borderColor: '#2563eb' }]}>
+          {/* <View style={[styles.productTag, { backgroundColor: '#f3f6fa', borderColor: '#2563eb' }]}>
             <Text style={{ color: '#2563eb', fontSize: 12 }}>{`ID: ${item.codigo || (item._id ? item._id.slice(-3) : '---')}`}</Text>
-          </View>
+          </View> */}
           <View style={[styles.productTag, { backgroundColor: '#fff3cd', borderColor: '#ffc107' }]}>
-            <Text style={{ color: '#ffc107', fontSize: 12 }}>{`Sabor: ${item.sabor || ('---')}`}</Text>
+            <Text style={{ color: '#ffc107', fontSize: 12 }}>{`Sabor: ${item.sabor || ('Sin definir')}`}</Text>
           </View>
         </View>
       </View>
@@ -77,7 +78,7 @@ const BUTTON_TEXT = '#fff';
 export default function Product({ navigation }) {
 
   const user = useAppSelector(getUser)
-  const { data: userStorage } = useLocalStorage([], 'user')
+  const { data: userStorage, clearData } = useLocalStorage([], 'user')
   const loading = useAppSelector(getLoading)
   const dispatch = useAppDispatch();
   const [data, setData] = useState([])
@@ -104,6 +105,16 @@ export default function Product({ navigation }) {
   const filteredArray = useFilteredArray(productLocalStorage, search.value);
 
   const { offline } = useContext(OfflineContext)
+
+  const logOut = async () => {
+    try {
+      await clearData();
+      await dispatch(clearUser());
+    } catch (error) {
+      console.error(error);
+    }
+    navigation.navigate('Login');
+  };
 
   const getProduct = (skip, limit) => {
     dispatch(setLoading({
@@ -133,6 +144,9 @@ export default function Product({ navigation }) {
       })
       .catch(e => {
         console.log("error getProduct", e); dispatch(clearLoading())
+        if (e.response.data === 'USUARIO_NO_ACTIVO') {
+          logOut()
+        }
         dispatch(setAlert({
           message: `${e.response?.data || 'Ocurrio un error'}`,
           type: 'error'
@@ -299,7 +313,7 @@ export default function Product({ navigation }) {
               }}
             />
             <UpdatePrice open={openUpdate} onClose={() => setOpenUpdate(false)} updateQuery={refreshProducts} />
-            <FilterProduct open={openFilter} onClose={() => setOpenFilter(false)} activeBrand={activeBrand._id} activeCategorie={activeCategorie._id} activeProvider={activeProvider._id}
+            <FilterProduct logout={logOut} open={openFilter} onClose={() => setOpenFilter(false)} activeBrand={activeBrand._id} activeCategorie={activeCategorie._id} activeProvider={activeProvider._id}
               selectCategorie={(item) => setActiveCategorie(prevItem => prevItem._id === item._id ? { _id: 1, descripcion: 'Todas' } : item)}
               selectBrand={(item) => setActiveBrand(item)}
               selectProvider={(item) => setActiveProvider(item)}

@@ -15,11 +15,7 @@ export const OfflineProvider = ({ children }) => {
   const user = useAppSelector(getUser)
   const { data: userStorage } = useLocalStorage([], 'user')
   const [sales, setSales] = useState([]);
-  const [offline, setOffline] = useState(false)
-
-  //const { data: saleStorage, clearData: clearDataSaleStorage, saveData: setSaleStorage } = useLocalStorage([], 'saleStorage')
-  //const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
-  //const { data: productStorage, saveData: setProductStorage } = useLocalStorage([], 'productStorage')
+  const [offline, setOffline] = useState(true)
 
   const saveDataStorage = async (value, key) => {
     try {
@@ -47,12 +43,14 @@ export const OfflineProvider = ({ children }) => {
   };
 
   const setModeOffline = async () => {
-    setOffline(!offline) //Cambio el estado de la conexion a offline
+    const newOfflineState = !offline;
+    setOffline(newOfflineState); // Cambio el estado de la conexión a offline
+    await AsyncStorage.setItem('offlineStorage', JSON.stringify(newOfflineState));
 
     const saleStorage = await getDataStorage('saleStorage')
 
-    if (!offline) {
-      return
+    if (newOfflineState) {
+      return;
     }
 
     if (sales.length > 0 || saleStorage.length > 0) {
@@ -77,14 +75,12 @@ export const OfflineProvider = ({ children }) => {
         })
         .catch((e) => { console.log('error post sale multiple', e); dispatch(clearLoading()) })
     }
-
   }
 
   const createSale = async (saleData) => {
     try {
       const updatedSales = [...sales, saleData];
       saveDataStorage(updatedSales, 'saleStorage')
-      //await setSaleStorage(updatedSales)
       setSales(updatedSales);
     } catch (e) {
       console.error('Error creating sale:', e);
@@ -93,7 +89,7 @@ export const OfflineProvider = ({ children }) => {
   };
 
   useEffect(() => {
-
+    console.log("offline useEffect", offline)
     const getProduct = async () => {
       dispatch(setLoading({
         message: `Actualizando productos`
@@ -132,11 +128,39 @@ export const OfflineProvider = ({ children }) => {
     }
   }, []);
 
+  // Este useEffect solo carga el valor inicial desde el storage al inicio
+  useEffect(() => {
+    const initializeOfflineState = async () => {
+      try {
+        // Solo leemos y configuramos el valor inicial una vez
+        const storedValue = await AsyncStorage.getItem('offlineStorage');
+
+        console.log("offline", offline)
+        console.log("offline storage", storedValue)
+        if (storedValue !== offline) {
+          console.log("Son distintos")
+          setOffline(storedValue);
+        }
+      } catch (e) {
+        console.error('Error al inicializar el modo offline:', e);
+        dispatch(setAlert({
+          message: 'Ocurrió un error al inicializar el modo offline, por favor reinicie la aplicación',
+          type: 'error'
+        }));
+      }
+    };
+
+    initializeOfflineState();
+  }, []);
+
+  const isOffline = () => offline
+
   const valueContext = {
     setModeOffline,
     createSale,
     sales,
     offline,
+    isOffline
   };
 
   return (

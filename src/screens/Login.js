@@ -25,10 +25,10 @@ export default function Login({ navigation }) {
         },
         validateOnChange: false,
         onSubmit: (formValue) => {
+
             dispatch(setLoading({
                 message: `Verificando los datos`
             }))
-            console.log("nickname", formValue.nickname.trim().toLowerCase())
             apiClient.post(`/auth/login`, {
                 nickname: formValue.nickname.trim().toLowerCase(),
                 password: formValue.password.trim()
@@ -43,6 +43,7 @@ export default function Login({ navigation }) {
                         dispatch(clearLoading())
                         return
                     }
+
                     dispatch(setUser(response.data))
                     dispatch(setAlert({
                         message: `Bienvenido ${response.data.nickname}`,
@@ -54,7 +55,14 @@ export default function Login({ navigation }) {
                     navigation.navigate('Home')
                 })
                 .catch(function (error) {
-                    console.log("post ", error);
+                    if (error.response.data === 'USUARIO_NO_ACTIVO') {
+                        dispatch(setAlert({
+                            message: `Usuario no activo`,
+                            type: 'error'
+                        }))
+                        dispatch(clearLoading())
+                        return
+                    }
                     dispatch(setAlert({
                         message: `Ocurrio un error`,
                         type: 'error'

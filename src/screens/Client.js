@@ -1,7 +1,7 @@
 import { FlatList, Pressable, StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native'
 import React, { useContext, useEffect, useState } from 'react'
 import apiClient from '../utils/client'
-import { getUser } from '../redux/userSlice';
+import { clearUser, getUser } from '../redux/userSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
 import Search from '../components/Search';
@@ -90,7 +90,7 @@ const HEADER_BLUE = '#2563eb';
 
 export default function Client({ navigation }) {
     const user = useAppSelector(getUser)
-    const { data: userStorage } = useLocalStorage([], 'user')
+    const { data: userStorage, clearData } = useLocalStorage([], 'user')
     const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
     const [data, setData] = useState([])
@@ -103,6 +103,16 @@ export default function Client({ navigation }) {
 
     const { hasPermission: hasPermissionReadClient, isLoading: isLoadingReadClient } = usePermissionCheck('read_client', () => { })
     const { hasPermission: hasPermissionCreateClient, isLoading: isLoadingCreateClient } = usePermissionCheck('create_client', () => { })
+
+    const logOut = async () => {
+        try {
+            await clearData();
+            await dispatch(clearUser());
+        } catch (error) {
+            console.error(error);
+        }
+        navigation.navigate('Login');
+    };
 
     const getClients = (skip, limit) => {
         setIsLoading(true)
@@ -134,6 +144,9 @@ export default function Client({ navigation }) {
             .catch(e => {
                 console.log("error", e);
                 console.log('error client', e.response?.data)
+                if (e.response.data === 'USUARIO_NO_ACTIVO') {
+                    logOut()
+                }
                 dispatch(setAlert({
                     message: `${e.response?.data || 'Ocurrio un error'}`,
                     type: 'error'
@@ -158,6 +171,9 @@ export default function Client({ navigation }) {
             })
             .catch(e => {
                 console.log("error", e);
+                if (e.response.data === 'USUARIO_NO_ACTIVO') {
+                    logOut()
+                }
                 dispatch(setAlert({
                     message: `${e.response?.data || 'Ocurrio un error'}`,
                     type: 'error'

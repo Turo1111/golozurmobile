@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import { clearUser, getUser } from '../redux/userSlice';
 import useLocalStorage from '../hooks/useLocalStorage';
@@ -12,11 +12,9 @@ export default function Home({ navigation }) {
   const user = useAppSelector(getUser);
   const dispatch = useAppDispatch();
   const { data: userLocalStorage, clearData } = useLocalStorage([], 'user');
-  const { offline, setModeOffline, sales } = useContext(OfflineContext);
+  const { offline, setModeOffline, sales, isOffline } = useContext(OfflineContext);
 
-  useEffect(() => {
-    console.log('sales', sales);
-  }, [sales])
+  /* console.log("offline home", offline) */
 
   const logOut = async () => {
     try {
@@ -34,6 +32,7 @@ export default function Home({ navigation }) {
   const { hasPermission: hasPermissionUser } = usePermissionCheck('read_user', () => { });
   const { hasPermission: hasPermissionRole } = usePermissionCheck('read_role', () => { });
   const { hasPermission: hasPermissionClient } = usePermissionCheck('read_client', () => { });
+
 
   return (
     <ScrollView style={styles.container}>

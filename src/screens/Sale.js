@@ -1,6 +1,6 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
 import React, { useContext, useEffect, useState } from 'react'
-import { getUser } from '../redux/userSlice';
+import { clearUser, getUser } from '../redux/userSlice';
 import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import apiClient from '../utils/client';
@@ -46,7 +46,7 @@ const getInitials = (name) => {
 export default function Sale({ navigation }) {
 
   const user = useAppSelector(getUser)
-  const { data: userStorage } = useLocalStorage([], 'user')
+  const { data: userStorage, clearData } = useLocalStorage([], 'user')
   const loading = useAppSelector(getLoading)
   const dispatch = useAppDispatch();
   const [data, setData] = useState([])
@@ -64,12 +64,25 @@ export default function Sale({ navigation }) {
 
   const { offline, sales } = useContext(OfflineContext)
 
+  const logOut = async () => {
+    try {
+      await clearData();
+      await dispatch(clearUser());
+    } catch (error) {
+      console.error(error);
+    }
+    navigation.navigate('Login');
+  };
+
   const getUsers = async () => {
     try {
       const response = await apiClient.get('/user/get/all');
       console.log("response users", response.data)
       setUsers(response.data);
     } catch (e) {
+      if (e.response.data === 'USUARIO_NO_ACTIVO') {
+        logOut()
+      }
       console.log("error getUsers", e)
     }
   }
@@ -98,6 +111,9 @@ export default function Sale({ navigation }) {
         return []
       })
     } catch (e) {
+      if (e.response.data === 'USUARIO_NO_ACTIVO') {
+        logOut()
+      }
       console.log("error getSale", e)
       setError(true)
     } finally {
@@ -114,6 +130,9 @@ export default function Sale({ navigation }) {
       const response = await apiClient.post(`/sale/search`, { input, filterUser });
       setDataSearch(response.data);
     } catch (e) {
+      if (e.response.data === 'USUARIO_NO_ACTIVO') {
+        logOut()
+      }
       console.log("error sale search", e);
       setError(true)
     } finally {
@@ -124,7 +143,7 @@ export default function Sale({ navigation }) {
   const clearUserFilter = () => {
     setSelectedUser(null);
     setQuery({ skip: 0, limit: 25 });
-    
+
     // Ejecutar búsqueda sin filtro de usuario
     if (search.value !== '') {
       getSaleSearch(search.value);
@@ -440,14 +459,17 @@ export default function Sale({ navigation }) {
             placeholderTextColor="#b0b0b0"
             {...search}
           />
-          <TouchableOpacity 
-            onPress={() => setShowUserDropdown(!showUserDropdown)}
-            style={styles.dropdownButton}
-          >
-            <Icon name={showUserDropdown ? "chevron-up" : "chevron-down"} size={18} color="#7F8487" />
-          </TouchableOpacity>
+          {
+            userStorage.nameRole === 'admin' &&
+            <TouchableOpacity
+              onPress={() => setShowUserDropdown(!showUserDropdown)}
+              style={styles.dropdownButton}
+            >
+              <Icon name={showUserDropdown ? "chevron-up" : "chevron-down"} size={18} color="#7F8487" />
+            </TouchableOpacity>
+          }
         </View>
-        
+
         {/* USER DROPDOWN */}
         {showUserDropdown && (
           <View style={styles.dropdownContainer}>
@@ -468,7 +490,7 @@ export default function Sale({ navigation }) {
                     styles.userItem,
                     selectedUser?._id === item._id && styles.selectedUserItem
                   ]}
-                  onPress={() =>{ setSelectedUser(item); setShowUserDropdown(false)}}
+                  onPress={() => { setSelectedUser(item); setShowUserDropdown(false) }}
                 >
                   <View style={styles.userInfo}>
                     <View style={styles.userInitials}>

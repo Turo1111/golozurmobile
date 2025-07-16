@@ -46,7 +46,9 @@ export default function EditUser({ route, navigation }) {
         initialValues,
         validationSchema,
         onSubmit: (values) => {
+            console.log("values", values)
             dispatch(setLoading({ message: 'Actualizando usuario' }))
+
             apiClient.patch(`/user/${id}`, values, {
                 headers: {
                     Authorization: `Bearer ${user.token || userStorage.token}`
@@ -106,12 +108,12 @@ export default function EditUser({ route, navigation }) {
             },
         })
             .then(response => {
+                console.log("response", response.data)
                 setInitialValues({
                     nickname: response.data.nickname || '',
-                    email: response.data.email || '',
                     password: '',
                     role: response.data.role || '',
-                    isActive: response.data.isActive !== undefined ? response.data.isActive : true
+                    isActive: response.data.isActive
                 })
                 dispatch(clearLoading())
             })
@@ -235,6 +237,33 @@ export default function EditUser({ route, navigation }) {
                         {formik.errors.role && formik.touched.role && (
                             <Text style={styles.errorText}>{formik.errors.role}</Text>
                         )}
+                    </View>
+                    {/* BOTÓN TOGGLE EJEMPLO */}
+                    {
+                        console.log("formik.values", formik.values)
+                    }
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20 }}>
+                        <Text style={{ marginRight: 10 }}>Activo:</Text>
+                        <TouchableOpacity
+                            style={{
+                                width: 50,
+                                height: 28,
+                                borderRadius: 14,
+                                backgroundColor: formik.values.isActive ? '#10B981' : '#ccc',
+                                justifyContent: 'center',
+                                padding: 3,
+                            }}
+                            onPress={() => formik.setFieldValue('isActive', formik.values.isActive ? false : true)}
+                        >
+                            <View style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: 11,
+                                backgroundColor: '#fff',
+                                alignSelf: formik.values.isActive ? 'flex-end' : 'flex-start',
+                                elevation: 2,
+                            }} />
+                        </TouchableOpacity>
                     </View>
                 </View>
             </ScrollView>
