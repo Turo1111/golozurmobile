@@ -203,10 +203,6 @@ export default function PrintProduct({ open, onClose }) {
     }
   };
 
-  useEffect(() => {
-    console.log('selectCategorie', selectCategorie)
-  }, [selectCategorie])
-
   return (
     <View>
       <ModalContainer

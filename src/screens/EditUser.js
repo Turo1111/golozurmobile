@@ -46,7 +46,6 @@ export default function EditUser({ route, navigation }) {
         initialValues,
         validationSchema,
         onSubmit: (values) => {
-            console.log("values", values)
             dispatch(setLoading({ message: 'Actualizando usuario' }))
 
             apiClient.patch(`/user/${id}`, values, {
@@ -108,7 +107,6 @@ export default function EditUser({ route, navigation }) {
             },
         })
             .then(response => {
-                console.log("response", response.data)
                 setInitialValues({
                     nickname: response.data.nickname || '',
                     password: '',
@@ -239,9 +237,6 @@ export default function EditUser({ route, navigation }) {
                         )}
                     </View>
                     {/* BOTÓN TOGGLE EJEMPLO */}
-                    {
-                        console.log("formik.values", formik.values)
-                    }
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20 }}>
                         <Text style={{ marginRight: 10 }}>Activo:</Text>
                         <TouchableOpacity

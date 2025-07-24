@@ -15,7 +15,7 @@ export const OfflineProvider = ({ children }) => {
   const user = useAppSelector(getUser)
   const { data: userStorage } = useLocalStorage([], 'user')
   const [sales, setSales] = useState([]);
-  const [offline, setOffline] = useState(true)
+  const [offline, setOffline] = useState(false)
 
   const saveDataStorage = async (value, key) => {
     try {
@@ -81,7 +81,7 @@ export const OfflineProvider = ({ children }) => {
     try {
       const updatedSales = [...sales, saleData];
       saveDataStorage(updatedSales, 'saleStorage')
-      setSales(updatedSales);
+      /* setSales(updatedSales); */
     } catch (e) {
       console.error('Error creating sale:', e);
       throw e;
@@ -89,7 +89,6 @@ export const OfflineProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    console.log("offline useEffect", offline)
     const getProduct = async () => {
       dispatch(setLoading({
         message: `Actualizando productos`
@@ -129,16 +128,13 @@ export const OfflineProvider = ({ children }) => {
   }, []);
 
   // Este useEffect solo carga el valor inicial desde el storage al inicio
-  useEffect(() => {
+  /* useEffect(() => {
     const initializeOfflineState = async () => {
       try {
         // Solo leemos y configuramos el valor inicial una vez
         const storedValue = await AsyncStorage.getItem('offlineStorage');
 
-        console.log("offline", offline)
-        console.log("offline storage", storedValue)
         if (storedValue !== offline) {
-          console.log("Son distintos")
           setOffline(storedValue);
         }
       } catch (e) {
@@ -151,7 +147,7 @@ export const OfflineProvider = ({ children }) => {
     };
 
     initializeOfflineState();
-  }, []);
+  }, []); */
 
   const isOffline = () => offline
 
@@ -160,7 +156,8 @@ export const OfflineProvider = ({ children }) => {
     createSale,
     sales,
     offline,
-    isOffline
+    isOffline,
+    deleteSales: () => setSales(prevData => [])
   };
 
   return (

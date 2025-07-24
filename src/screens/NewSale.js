@@ -109,11 +109,11 @@ export default function NewSale({ navigation }) {
   const search = useInputValue('', '')
   const porcentaje = useInputValue('0', 'number')
 
-  const { offline } = useContext(OfflineContext)
+  const [offline, setOffline] = useState(false)
 
   const { data: productLocalStorage } = useLocalStorage([], 'productStorage')
 
-  const filteredArray = useFilteredArray(productLocalStorage, search.value);
+  const filteredArray = useFilteredArray(productLocalStorage.product, search.value);
 
 
   const getProduct = (skip, limit) => {
@@ -142,9 +142,10 @@ export default function NewSale({ navigation }) {
         console.log('error', e);
         dispatch(clearLoading())
         dispatch(setAlert({
-          message: `${e.response?.data || 'Ocurrio un error'}`,
+          message: `${e.response?.data || 'No se pudo traer los productos, estas en modo offline'}`,
           type: 'error'
         }))
+        setOffline(true)
       })
   }
 
@@ -157,9 +158,10 @@ export default function NewSale({ navigation }) {
       .catch(e => {
         console.log("error", e);
         dispatch(setAlert({
-          message: `${e.response?.data || 'Ocurrio un error'}`,
+          message: `${e.response?.data || 'No se pudo traer los productos, estas en modo offline'}`,
           type: 'error'
         }))
+        setOffline(true)
       })
   }
 
@@ -230,7 +232,6 @@ export default function NewSale({ navigation }) {
   }
 
   const postOffline = async () => {
-    console.log('postOffline')
     let today = new Date()
     let formatToday = today.toISOString()
     createSale({ createdAt: formatToday, itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value })
@@ -238,7 +239,6 @@ export default function NewSale({ navigation }) {
   }
 
   const postSale = async () => {
-    console.log('postSale')
     if (lineaVenta.length === 0 || total <= 0) {
       dispatch(setAlert({
         message: `No se agregaron productos al carrito`,
@@ -253,10 +253,10 @@ export default function NewSale({ navigation }) {
       }))
       return
     }
-    if (offline) {
+    /* if (offline) {
       postOffline()
       return
-    }
+    } */
     dispatch(setLoading({
       message: `Guardando productos`
     }))
@@ -269,25 +269,24 @@ export default function NewSale({ navigation }) {
 
         dispatch(clearLoading());
       })
-      .catch((e) => { console.log('error post sale', e); dispatch(clearLoading()); })
+      .catch(async (e) => {
+        postOffline()
+        dispatch(clearLoading());
+      })
     setOpenAlertPost(true)
   }
 
   const generatePdf = async (cliente) => {
-    console.log("generatePdf", cliente, offline)
     let details = undefined;
     if (offline) {
       dispatch(setLoading({
         message: `Obteniendo venta`
       }))
       try {
-        console.log("offline")
         const jsonValue = await AsyncStorage.getItem('saleStorage');
-        console.log("jsonValue", jsonValue)
         if (jsonValue !== null) {
           const value = JSON.parse(jsonValue);
           details = await value.find(elem => elem.cliente === cliente);
-          console.log("details", details)
         }
         dispatch(clearLoading());
       } catch (e) {

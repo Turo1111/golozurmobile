@@ -35,7 +35,6 @@ export default function InputSelectAdd({ value, onChange, name, path }) {
         },
       })
       .then(response => {
-        console.log("response.data", response.data)
         setData(response.data)
         setLoading(false)
       })

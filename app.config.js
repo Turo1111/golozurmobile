@@ -3,11 +3,11 @@ import 'dotenv/config';
 
 export default () => ({
     expo: {
-        name: "golozurapp2",
+        name: "Golozur",
         slug: "adm-golozur",
         version: "1.0.0",
         orientation: "portrait",
-        icon: "./assets/icon.png",
+        icon: "./assets/iconogz.jpg",
         userInterfaceStyle: "light",
         splash: {
             image: "./assets/splash.png",

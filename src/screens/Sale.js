@@ -1,5 +1,5 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
-import React, { useContext, useEffect, useState } from 'react'
+import React, { useCallback, useContext, useEffect, useState } from 'react'
 import { clearUser, getUser } from '../redux/userSlice';
 import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
@@ -23,6 +23,8 @@ import { TextInput, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import SaleItem from '../components/SaleItem';
 import Constants from 'expo-constants';
+import { subscribeToStorage } from '../hooks/useLocalStorage';
+import { useFocusEffect } from '@react-navigation/native';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
@@ -62,7 +64,24 @@ export default function Sale({ navigation }) {
   const { hasPermission: hasPermissionCreateSale, isLoading: isLoadingCreateSale } = usePermissionCheck('create_sale', () => { })
   const { hasPermission: hasPermissionUpdateSale, isLoading: isLoadingUpdateSale } = usePermissionCheck('update_sale', () => { })
 
-  const { offline, sales } = useContext(OfflineContext)
+  const [offline, setOffline] = useState(false)
+
+  /* const { data: sales, clearData: clearSalesData } = useLocalStorage([], 'saleStorage') */
+
+  const [sales, setSales] = useState([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchVentas = async () => {
+        const json = await AsyncStorage.getItem('saleStorage');
+        if (json) {
+          setSales(JSON.parse(json));
+        }
+      };
+
+      fetchVentas();
+    }, [])
+  );
 
   const logOut = async () => {
     try {
@@ -77,7 +96,6 @@ export default function Sale({ navigation }) {
   const getUsers = async () => {
     try {
       const response = await apiClient.get('/user/get/all');
-      console.log("response users", response.data)
       setUsers(response.data);
     } catch (e) {
       if (e.response.data === 'USUARIO_NO_ACTIVO') {
@@ -111,6 +129,7 @@ export default function Sale({ navigation }) {
         return []
       })
     } catch (e) {
+      setOffline(true)
       if (e.response.data === 'USUARIO_NO_ACTIVO') {
         logOut()
       }
@@ -126,10 +145,10 @@ export default function Sale({ navigation }) {
       message: `Actualizando ventas`
     }))
     try {
-      console.log("input", input)
       const response = await apiClient.post(`/sale/search`, { input, filterUser });
       setDataSearch(response.data);
     } catch (e) {
+      setOffline(true)
       if (e.response.data === 'USUARIO_NO_ACTIVO') {
         logOut()
       }
@@ -175,12 +194,13 @@ export default function Sale({ navigation }) {
     if (user && !offline) {
       getUsers();
     }
+    console.log("offline", offline)
   }, [user, offline]);
 
   useEffect(() => {
-    if (user && !offline) {
-      getSale(query.skip, query.limit)
-    }
+
+    getSale(query.skip, query.limit)
+
   }, [query, offline, selectedUser])
 
   useEffect(() => {

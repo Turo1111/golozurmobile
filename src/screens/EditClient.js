@@ -111,7 +111,6 @@ export default function EditClient({ route, navigation }) {
         })
             .then(response => {
                 const clientData = response.data
-                console.log('clientData', clientData)
                 setInitialValues({
                     nombreCompleto: clientData.nombreCompleto || '',
                     direccion: clientData.direccion || '',

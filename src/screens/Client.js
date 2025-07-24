@@ -143,7 +143,6 @@ export default function Client({ navigation }) {
             })
             .catch(e => {
                 console.log("error", e);
-                console.log('error client', e.response?.data)
                 if (e.response.data === 'USUARIO_NO_ACTIVO') {
                     logOut()
                 }

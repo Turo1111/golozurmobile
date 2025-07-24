@@ -102,9 +102,11 @@ export default function Product({ navigation }) {
 
   const search = useInputValue('', '')
 
-  const filteredArray = useFilteredArray(productLocalStorage, search.value);
+  const filteredArray = useFilteredArray(productLocalStorage.product, search.value);
 
-  const { offline } = useContext(OfflineContext)
+  /* const { offline } = useContext(OfflineContext) */
+
+  const [offline, setOffline] = useState(false)
 
   const logOut = async () => {
     try {
@@ -135,7 +137,6 @@ export default function Product({ navigation }) {
             const newData = response.data.array.filter((element) => {
               return prevData.findIndex((item) => item._id === element._id) === -1;
             });
-            /* console.log([...prevData, ...newData]); */
             return [...prevData, ...newData];
           }
           return []
@@ -147,8 +148,9 @@ export default function Product({ navigation }) {
         if (e.response.data === 'USUARIO_NO_ACTIVO') {
           logOut()
         }
+        setOffline(true)
         dispatch(setAlert({
-          message: `${e.response?.data || 'Ocurrio un error'}`,
+          message: `${e.response?.data || 'No se pudo traer los productos, estas en modo offline'}`,
           type: 'error'
         }))
       })
@@ -169,9 +171,10 @@ export default function Product({ navigation }) {
       .catch(e => {
         console.log("error", e); dispatch(clearLoading())
         dispatch(setAlert({
-          message: `${e.response?.data || 'Ocurrio un error'}`,
+          message: `${e.response?.data || 'No se pudo traer los productos, estas en modo offline'}`,
           type: 'error'
         }))
+        setOffline(true)
       })
   }
 
@@ -292,7 +295,7 @@ export default function Product({ navigation }) {
         !offline ?
           <View>
             <FlatList
-              style={{ height: '83%' }}
+              style={{ height: '70%' }}
               data={search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ?
                 dataSearch :
                 data
@@ -326,7 +329,7 @@ export default function Product({ navigation }) {
           <View>
             <Text style={styles.offlineMessage}>Estas en modo sin conexión</Text>
             <FlatList
-              style={{ height: '83%' }}
+              style={{ height: '70%' }}
               data={filteredArray}
               renderItem={({ item }) => renderItem({ item, navigation, offline })}
               keyExtractor={(item) => item._id}

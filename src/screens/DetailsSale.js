@@ -62,7 +62,7 @@ export default function DetailsSale({ route, navigation }) {
     };
   }, [id])
 
-  
+
 
   const formatDate = (dateString) => {
     if (!dateString) return '';
@@ -110,8 +110,6 @@ export default function DetailsSale({ route, navigation }) {
       </View>
     );
   };
-
-  console.log(details)
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F6F8FA' }}>

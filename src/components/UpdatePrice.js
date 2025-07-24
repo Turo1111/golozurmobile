@@ -45,7 +45,6 @@ export default function UpdatePrice({ open, onClose, updateQuery }) {
             }
           })
           .then(async (response) => {
-            console.log(response)
             await updateQuery()
             formik.resetForm()
             onClose(); dispatch(clearLoading())

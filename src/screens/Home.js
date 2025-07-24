@@ -1,20 +1,22 @@
 import { Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import { clearUser, getUser } from '../redux/userSlice';
-import useLocalStorage from '../hooks/useLocalStorage';
-import { OfflineContext } from '../context.js/contextOffline';
+import useLocalStorage, { subscribeToStorage } from '../hooks/useLocalStorage';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { OfflineContext } from '../context.js/contextOffline';
+import { useFocusEffect } from '@react-navigation/native';
+// Eliminar la importación si no se usa en otro lugar
+// import * as Notifications from 'expo-notifications';
 
 export default function Home({ navigation }) {
   const user = useAppSelector(getUser);
   const dispatch = useAppDispatch();
   const { data: userLocalStorage, clearData } = useLocalStorage([], 'user');
-  const { offline, setModeOffline, sales, isOffline } = useContext(OfflineContext);
 
-  /* console.log("offline home", offline) */
 
   const logOut = async () => {
     try {
@@ -32,7 +34,6 @@ export default function Home({ navigation }) {
   const { hasPermission: hasPermissionUser } = usePermissionCheck('read_user', () => { });
   const { hasPermission: hasPermissionRole } = usePermissionCheck('read_role', () => { });
   const { hasPermission: hasPermissionClient } = usePermissionCheck('read_client', () => { });
-
 
   return (
     <ScrollView style={styles.container}>
@@ -64,7 +65,16 @@ export default function Home({ navigation }) {
 
         </View>
 
-        <Pressable onPress={setModeOffline}>
+        <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+        {hasPermissionCreateSale && (
+          <Pressable style={styles.quickActionPrimary} onPress={() => navigation.navigate('NewSale')}>
+            <Icon name="plus" size={24} color="#fff" />
+            <Text style={styles.quickActionPrimaryText}>Nueva Venta</Text>
+            <Icon name="arrow-right" size={24} color="#fff" />
+          </Pressable>
+        )}
+
+        {/* <Pressable onPress={setModeOffline}>
           {offline ? (
             <View style={styles.offlineBanner}>
               <View>
@@ -94,8 +104,8 @@ export default function Home({ navigation }) {
               </View>
             </View>
           )}
-        </Pressable>
-
+        </Pressable> */}
+        {/* 
         {sales.length > 0 && (
           <View style={styles.alertBanner}>
             <Icon name="alert-outline" size={24} color="#f5a623" />
@@ -104,28 +114,7 @@ export default function Home({ navigation }) {
               <Text style={styles.alertSubtitle}>Tienes {sales.length} ventas sin sincronizar. Conecta a internet para guardarlas.</Text>
             </View>
           </View>
-        )}
-
-        {/* <View style={styles.kpiContainer}>
-          <View style={styles.kpiCard}>
-            <View style={{ backgroundColor: 'rgba(59, 89, 152, 0.3)', borderRadius: 8, padding: 10, marginRight: 5, marginTop: 8 }}>
-              <Icon name="chart-line" size={24} color="#3b5998" />
-            </View>
-            <View>
-              <Text style={styles.kpiTitle}>Ventas Hoy</Text>
-              <Text style={styles.kpiValue}>15</Text>
-            </View>
-          </View>
-          <View style={styles.kpiCard}>
-            <View style={{ backgroundColor: 'rgba(245, 166, 35, 0.3)', borderRadius: 8, padding: 10, marginRight: 5, marginTop: 8 }}>
-              <Icon name="trending-up" size={24} color="#f5a623" />
-            </View>
-            <View>
-              <Text style={styles.kpiTitle}>Ganancias Hoy</Text>
-              <Text style={styles.kpiValue}>$1,280</Text>
-            </View>
-          </View>
-        </View> */}
+        )} */}
 
         <Text style={styles.sectionTitle}>Módulos Principales</Text>
         <View style={styles.modulesGrid}>
@@ -134,16 +123,10 @@ export default function Home({ navigation }) {
           {hasPermissionUser && <ModuleCard icon="account-group-outline" color="#6e8c47" title="USUARIOS" subtitle="Administrar equipo" onPress={() => navigation.navigate('Users')} />}
           {hasPermissionRole && <ModuleCard icon="lock-outline" color="#8e44ad" title="ROLES" subtitle="Permisos y accesos" onPress={() => navigation.navigate('Roles')} />}
           {hasPermissionClient && <ModuleCard icon="account-multiple-outline" color="#e74c3c" title="CLIENTES" subtitle="Administrar clientes" onPress={() => navigation.navigate('Client')} />}
+          {hasPermissionUser && <ModuleCard icon="database-sync" color="#2980b9" title="ALMACENAMIENTO" subtitle="Datos locales" onPress={() => navigation.navigate('InfoStorage')} />}
         </View>
 
-        <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
-        {hasPermissionCreateSale && (
-          <Pressable style={styles.quickActionPrimary} onPress={() => navigation.navigate('NewSale')}>
-            <Icon name="plus" size={24} color="#fff" />
-            <Text style={styles.quickActionPrimaryText}>Nueva Venta</Text>
-            <Icon name="arrow-right" size={24} color="#fff" />
-          </Pressable>
-        )}
+
         {/* {hasPermissionProduct && (
           <Pressable style={styles.quickActionSecondary}>
             <Icon name="magnify" size={24} color="#333" />
