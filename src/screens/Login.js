@@ -35,7 +35,7 @@ export default function Login({ navigation }) {
             })
                 .then(async function (response) {
                     if (response.data === 'NOT_FOUND_USER' || response.data === 'PASSWORD_INCORRECT') {
-                        console.log('error', response.data)
+
                         dispatch(setAlert({
                             message: `${response.data}`,
                             type: 'error'

@@ -39,7 +39,7 @@ const SaleItem = ({
                     </View>
                 </View>
                 <View style={styles.priceContainer}>
-                    <Text style={styles.salePrice}>${item.total.toFixed(2)}</Text>
+                    <Text style={styles.salePrice}>${item.total?.toFixed(2) || '---'}</Text>
                     <View style={styles.statusBadge}>
                         <Text style={styles.statusText}>{item.estado || 'No definido'}</Text>
                     </View>

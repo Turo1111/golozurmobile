@@ -209,7 +209,6 @@ export default function InfoStorage({ navigation }) {
                         // await apiClient.post('/sale/create', sale, {
                         //   headers: { Authorization: `Bearer ${user.token || userStorage.token}` }
                         // });
-                        console.log('Sincronizando venta:', sale);
                     } catch (error) {
                         console.error('Error al sincronizar venta:', error);
                     }

@@ -25,10 +25,8 @@ Notifications.setNotificationHandler({
 async function ping() {
     try {
         const response = await axios.get('https://apigolozur.onrender.com/ping', { timeout: 5000 });
-        console.log('Respuesta del ping:', response.data);
         return { success: true, data: response.data };
     } catch (error) {
-        console.error('Error en ping:', error.message);
         return { success: false, error: error.message };
     }
 }
@@ -46,7 +44,6 @@ async function postSale(saleInStorage) {
             });
         })
         .catch(async (e) => {
-            console.log('error post sale multiple', e)
             await AsyncStorage.removeItem('saleStorage')
             await Notifications.scheduleNotificationAsync({
                 content: {
@@ -63,18 +60,15 @@ async function getDateProduct() {
         const response = await apiClient.get('/product/get/ultimas-fechas');
         return response.data;
     } catch (error) {
-        console.error('Error al obtener las últimas fechas del producto:', error.message);
         return null;
     }
 }
 
 async function getProduct() {
-    console.log('getProduct')
     try {
         const response = await apiClient.get('/product');
         return response.data;
     } catch (error) {
-        console.error('Error al obtener los productos:', error.message);
         return null;
     }
 }
@@ -87,7 +81,6 @@ async function sendPingNotification() {
 
     if (pingResult.success) {
         if (saleInStorageParsed.length > 0) {
-            console.log('Hay ventas en el storage')
             postSale(saleInStorageParsed)
             return
         }
@@ -101,14 +94,10 @@ async function syncProduct() {
         const productInStorageParsed = JSON.parse(productInStorage)
         const dateProduct = await getDateProduct()
         if (productInStorageParsed?.product?.length > 0) {
-            console.log('Hay productos en el storage')
-            console.log('ultimo update', productInStorageParsed?.lastUpdate)
-            console.log('ultima fecha', dateProduct)
             // Sumar 3 horas a la fecha de lastUpdate
             const lastUpdate = new Date(productInStorageParsed?.lastUpdate);
             lastUpdate.setHours(lastUpdate.getHours());
             if (productInStorageParsed?.lastUpdate < dateProduct?.ultimaUpdatedAt || productInStorageParsed?.lastUpdate < dateProduct?.ultimaCreatedAt) {
-                console.log('Hay productos nuevos')
                 const listProduct = await getProduct()
                 const productStorage = {
                     product: listProduct,
@@ -117,11 +106,9 @@ async function syncProduct() {
                 await AsyncStorage.setItem('productStorage', JSON.stringify(productStorage))
                 return
             } else {
-                console.log('No hay productos nuevos')
+                return
             }
-            return
         }
-        console.log('No hay productos en el storage')
         const listProduct = await getProduct()
         const productStorage = {
             product: listProduct,
@@ -139,7 +126,6 @@ TaskManager.defineTask(PING_TASK, async () => {
         await sendPingNotification();
         return BackgroundFetch.BackgroundFetchResult.NewData;
     } catch (err) {
-        console.error('Error en verificación de ping:', err);
         return BackgroundFetch.BackgroundFetchResult.Failed;
     }
 });
@@ -149,7 +135,6 @@ TaskManager.defineTask(SYNCPRODUCT_TASK, async () => {
         await syncProduct();
         return BackgroundFetch.BackgroundFetchResult.NewData;
     } catch (err) {
-        console.error('Error en sincronización de productos:', err);
         return BackgroundFetch.BackgroundFetchResult.Failed;
     }
 });
@@ -166,7 +151,6 @@ export async function configureNotifications() {
     }
 
     if (finalStatus !== 'granted') {
-        console.log('No se concedieron permisos para las notificaciones');
         return false;
     }
 
@@ -196,10 +180,8 @@ export async function registerBackgroundPingTask() {
                 stopOnTerminate: false,
                 startOnBoot: true,
             });
-            console.log('Tarea de verificación de ping registrada');
         }
     } catch (error) {
-        console.error('Error al registrar tarea de ping:', error);
     }
 }
 
@@ -215,7 +197,6 @@ export async function registerBackgroundSyncProductTask() {
             });
         }
     } catch (error) {
-        console.error('Error al registrar tarea de sincronización de productos:', error);
     }
 }
 

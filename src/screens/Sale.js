@@ -105,29 +105,34 @@ export default function Sale({ navigation }) {
     }
   }
 
-  const getSale = async (skip, limit) => {
+  const getSale = async (skip, limit, filterUser = null) => {
     dispatch(setLoading({
       message: `Actualizando ventas`
     }))
     try {
-      const response = await apiClient.post(`/sale/skip`, { skip, limit },
+      const response = await apiClient.post(`/sale/skip`, { skip, limit, filterUser },
         {
           headers: {
             Authorization: `Bearer ${user.token || userStorage.token}`
           },
         });
-      setData((prevData) => {
-        if (prevData) {
-          if (prevData.length === 0) {
-            return response.data.array
+      if (filterUser !== null) {
+        setData(response.data.array)
+        return
+      } else {
+        setData((prevData) => {
+          if (prevData) {
+            if (prevData.length === 0) {
+              return response.data.array
+            }
+            const newData = response.data.array.filter((element) => {
+              return prevData.findIndex((item) => item._id === element._id) === -1;
+            });
+            return [...prevData, ...newData];
           }
-          const newData = response.data.array.filter((element) => {
-            return prevData.findIndex((item) => item._id === element._id) === -1;
-          });
-          return [...prevData, ...newData];
-        }
-        return []
-      })
+          return []
+        })
+      }
     } catch (e) {
       setOffline(true)
       if (e.response.data === 'USUARIO_NO_ACTIVO') {
@@ -140,12 +145,12 @@ export default function Sale({ navigation }) {
     }
   }
 
-  const getSaleSearch = async (input, filterUser = null) => {
+  const getSaleSearch = async (input) => {
     dispatch(setLoading({
       message: `Actualizando ventas`
     }))
     try {
-      const response = await apiClient.post(`/sale/search`, { input, filterUser });
+      const response = await apiClient.post(`/sale/search`, { input });
       setDataSearch(response.data);
     } catch (e) {
       setOffline(true)
@@ -177,9 +182,9 @@ export default function Sale({ navigation }) {
   useEffect(() => {
     let timeoutId;
 
-    if (search.value !== '' || selectedUser !== null) {
+    if (search.value !== '') {
       timeoutId = setTimeout(() => {
-        getSaleSearch(search.value, selectedUser?._id);
+        getSaleSearch(search.value);
       }, 1000);
     }
 
@@ -188,24 +193,26 @@ export default function Sale({ navigation }) {
         clearTimeout(timeoutId);
       }
     };
-  }, [search.value, selectedUser]);
+  }, [search.value]);
 
   useEffect(() => {
     if (user && !offline) {
       getUsers();
     }
-    console.log("offline", offline)
   }, [user, offline]);
 
   useEffect(() => {
-
-    getSale(query.skip, query.limit)
-
-  }, [query, offline, selectedUser])
+    getSale(query.skip, query.limit, selectedUser?._id)
+  }, [query, selectedUser])
 
   useEffect(() => {
     const socket = io(DB_HOST)
-    socket.on(`sale`, (socket) => {
+    socket.on(`sale`, async (socket) => {
+      if (!socket.data._id) {
+        await setData([])
+        await getSale(query.skip, query.limit, selectedUser?._id)
+        return
+      }
       setData((prevData) => {
         return [socket.data, ...prevData]
       })
@@ -555,7 +562,7 @@ export default function Sale({ navigation }) {
             <View style={{ flex: 1, paddingHorizontal: 15, paddingTop: 10 }}>
               <FlatList
                 style={{ flex: 1 }}
-                data={(search.value !== '' || selectedUser !== null) ? dataSearch : data}
+                data={(search.value !== '') ? dataSearch : data}
                 renderItem={({ item }) => (
                   <SaleItem
                     item={item}
