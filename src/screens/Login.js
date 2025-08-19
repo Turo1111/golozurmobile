@@ -25,7 +25,7 @@ export default function Login({ navigation }) {
         },
         validateOnChange: false,
         onSubmit: (formValue) => {
-
+            console.log(formValue)
             dispatch(setLoading({
                 message: `Verificando los datos`
             }))

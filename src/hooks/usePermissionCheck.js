@@ -5,6 +5,7 @@ import { setAlert } from '../redux/alertSlice'
 import useLocalStorage from './useLocalStorage'
 import { decode as base64Decode } from 'base-64'
 
+
 // Función personalizada para decodificar JWT en React Native
 const decodeJWT = (token) => {
     try {

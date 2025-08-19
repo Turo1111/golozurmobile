@@ -14,10 +14,10 @@ export const useInputValue = (initialValue, onlyType) => {
     if (onlyType === 'number') {
       setvalue(e.replace(/[^0-9]/g, ''))
     }
-    if (onlyType === 'string'){
+    if (onlyType === 'string') {
       esLetra(e) && setvalue(e)
     }
-    if(onlyType === ''){
+    if (onlyType === '') {
       setvalue(e)
     }
   }
@@ -25,6 +25,10 @@ export const useInputValue = (initialValue, onlyType) => {
   const clearValue = () => {
     setvalue('')
   }
-  
-  return { value, onChangeText, clearValue }
+
+  const setValue = (e) => {
+    setvalue(e)
+  }
+
+  return { value, onChangeText, clearValue, setValue }
 }

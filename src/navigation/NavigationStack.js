@@ -9,6 +9,7 @@ import EditProduct from '../screens/EditProduct';
 import Sale from '../screens/Sale';
 import DetailsSale from '../screens/DetailsSale';
 import NewSale from '../screens/NewSale';
+import EditSale from '../screens/EditSale';
 import Users from '../screens/Users';
 import NewUser from '../screens/NewUser';
 import Roles from '../screens/Roles';
@@ -31,6 +32,7 @@ export default function NavigationStack() {
       <Stack.Screen name='Product' component={Product} options={{ headerShown: false }} />
       <Stack.Screen name='Sale' component={Sale} options={{ headerShown: false }} />
       <Stack.Screen name='NewSale' component={NewSale} options={{ headerShown: false }} />
+      <Stack.Screen name='EditSale' component={EditSale} options={{ headerShown: false }} />
       <Stack.Screen name='NewProduct' component={NewProduct} options={{ headerShown: false }} />
       <Stack.Screen name='EditProduct' component={EditProduct} options={{ headerShown: false }} />
       <Stack.Screen name='DetailsProduct' component={DetailsProduct} options={{ headerShown: false }} />

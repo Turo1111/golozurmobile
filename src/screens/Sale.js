@@ -1,5 +1,5 @@
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
-import React, { useCallback, useContext, useEffect, useState } from 'react'
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { clearUser, getUser } from '../redux/userSlice';
 import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
@@ -25,6 +25,26 @@ import SaleItem from '../components/SaleItem';
 import Constants from 'expo-constants';
 import { subscribeToStorage } from '../hooks/useLocalStorage';
 import { useFocusEffect } from '@react-navigation/native';
+import { decode as base64Decode } from 'base-64'
+import ListModeSwitch from '../components/ListModeSwitch';
+
+const decodeJWT = (token) => {
+  try {
+    // Dividir el token en sus partes
+    const parts = token.split('.')
+    if (parts.length !== 3) {
+      throw new Error('Invalid token format')
+    }
+
+    // Decodificar el payload (segunda parte)
+    const payload = parts[1]
+    const decodedPayload = base64Decode(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    return JSON.parse(decodedPayload)
+  } catch (error) {
+    console.error('Error decoding JWT:', error)
+    throw error
+  }
+}
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
@@ -59,6 +79,8 @@ export default function Sale({ navigation }) {
   const [showUserDropdown, setShowUserDropdown] = useState(false)
   const [users, setUsers] = useState([])
   const [selectedUser, setSelectedUser] = useState(null)
+  const [limitSales, setLimitSales] = useState(0)
+  const [showLocal, setShowLocal] = useState(false)
 
   const { hasPermission: hasPermissionReadSale, isLoading: isLoadingReadSale } = usePermissionCheck('read_sale', () => { })
   const { hasPermission: hasPermissionCreateSale, isLoading: isLoadingCreateSale } = usePermissionCheck('create_sale', () => { })
@@ -66,21 +88,27 @@ export default function Sale({ navigation }) {
 
   const [offline, setOffline] = useState(false)
 
-  /* const { data: sales, clearData: clearSalesData } = useLocalStorage([], 'saleStorage') */
+  const { data: saleStorage, clearData: clearSaleStorage } = useLocalStorage([], 'saleStorage')
 
   const [sales, setSales] = useState([]);
 
+  const reloadLocalSales = useCallback(async () => {
+    try {
+      const json = await AsyncStorage.getItem('saleStorage');
+      if (json) {
+        setSales(JSON.parse(json));
+      } else {
+        setSales([]);
+      }
+    } catch (e) {
+      setSales([]);
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      const fetchVentas = async () => {
-        const json = await AsyncStorage.getItem('saleStorage');
-        if (json) {
-          setSales(JSON.parse(json));
-        }
-      };
-
-      fetchVentas();
-    }, [])
+      reloadLocalSales();
+    }, [reloadLocalSales])
   );
 
   const logOut = async () => {
@@ -118,8 +146,12 @@ export default function Sale({ navigation }) {
         });
       if (filterUser !== null) {
         setData(response.data.array)
+        setLimitSales(response.data.longitud)
+        console.log("response.data.longitud", response.data.longitud)
         return
       } else {
+        console.log("response.data.array", response.data.array.length)
+        console.log("response.data.longitud", response.data.longitud)
         setData((prevData) => {
           if (prevData) {
             if (prevData.length === 0) {
@@ -132,6 +164,7 @@ export default function Sale({ navigation }) {
           }
           return []
         })
+        setLimitSales(response.data.longitud)
       }
     } catch (e) {
       setOffline(true)
@@ -182,7 +215,7 @@ export default function Sale({ navigation }) {
   useEffect(() => {
     let timeoutId;
 
-    if (search.value !== '') {
+    if (search.value !== '' && !showLocal) {
       timeoutId = setTimeout(() => {
         getSaleSearch(search.value);
       }, 1000);
@@ -193,28 +226,35 @@ export default function Sale({ navigation }) {
         clearTimeout(timeoutId);
       }
     };
-  }, [search.value]);
+  }, [search.value, showLocal]);
 
   useEffect(() => {
-    if (user && !offline) {
+    if (user && !offline && !showLocal) {
       getUsers();
     }
-  }, [user, offline]);
+  }, [user, offline, showLocal]);
 
   useEffect(() => {
-    getSale(query.skip, query.limit, selectedUser?._id)
-  }, [query, selectedUser])
+    console.log("query", query)
+    if (!showLocal) {
+      getSale(query.skip, query.limit, selectedUser?._id)
+    }
+  }, [query, selectedUser, showLocal])
 
   useEffect(() => {
     const socket = io(DB_HOST)
     socket.on(`sale`, async (socket) => {
+      const tokenDecoded = decodeJWT(userStorage.token)
       if (!socket.data._id) {
         await setData([])
         await getSale(query.skip, query.limit, selectedUser?._id)
         return
       }
       setData((prevData) => {
-        return [socket.data, ...prevData]
+        if (tokenDecoded.id === socket.data.user || userStorage.nameRole === 'admin') {
+          return [socket.data, ...prevData]
+        }
+        return prevData
       })
     })
     return () => {
@@ -261,7 +301,7 @@ export default function Sale({ navigation }) {
 
   const generatePdf = async (cliente) => {
     let details = undefined;
-    if (offline) {
+    if (offline || showLocal) {
       dispatch(setLoading({
         message: `Obteniendo venta`
       }))
@@ -440,16 +480,28 @@ export default function Sale({ navigation }) {
     }
   };
 
-  if (isLoadingReadSale || !hasPermissionReadSale) {
-    return null
-  }
-
   const handleSalePress = (item) => {
     navigation.navigate('DetailsSale', {
       id: item._id,
       name: item.cliente,
     });
   };
+
+  const filteredLocalSales = useMemo(() => {
+    const term = (search.value || '').toString().toLowerCase();
+    if (!term) return [...sales].reverse();
+    try {
+      return [...sales]
+        .filter((s) => (s?.cliente || '').toString().toLowerCase().includes(term))
+        .reverse();
+    } catch {
+      return [...sales].reverse();
+    }
+  }, [sales, search.value]);
+
+  if (isLoadingReadSale || !hasPermissionReadSale) {
+    return null
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f6f8fa' }}>
@@ -470,8 +522,12 @@ export default function Sale({ navigation }) {
               <Text style={{ color: '#fff', fontSize: 13, marginLeft: 4 }}>{offline ? 'Offline' : 'Online'}</Text>
             </View>
             <TouchableOpacity onPress={() => {
-              setQuery({ skip: 0, limit: 25 })
-              getSale(0, 25)
+              if (showLocal) {
+                reloadLocalSales();
+              } else {
+                setQuery({ skip: 0, limit: 25 })
+                getSale(0, 25)
+              }
             }} style={{ marginLeft: 8, padding: 4, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10 }}>
               <Icon name="refresh-cw" size={18} color="#fff" />
             </TouchableOpacity>
@@ -482,12 +538,12 @@ export default function Sale({ navigation }) {
           <Icon name="search" size={18} color="#7F8487" style={{ marginLeft: 10 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder={selectedUser ? `Filtrando por: ${selectedUser.nickname}` : "Buscar ventas"}
+            placeholder={showLocal ? "Buscar ventas locales" : (selectedUser ? `Filtrando por: ${selectedUser.nickname}` : "Buscar ventas")}
             placeholderTextColor="#b0b0b0"
             {...search}
           />
           {
-            userStorage.nameRole === 'admin' &&
+            !showLocal && userStorage.nameRole === 'admin' &&
             <TouchableOpacity
               onPress={() => setShowUserDropdown(!showUserDropdown)}
               style={styles.dropdownButton}
@@ -517,7 +573,7 @@ export default function Sale({ navigation }) {
                     styles.userItem,
                     selectedUser?._id === item._id && styles.selectedUserItem
                   ]}
-                  onPress={() => { setSelectedUser(item); setShowUserDropdown(false) }}
+                  onPress={() => { setSelectedUser(item); setShowUserDropdown(false), console.log("item", item) }}
                 >
                   <View style={styles.userInfo}>
                     <View style={styles.userInitials}>
@@ -552,8 +608,23 @@ export default function Sale({ navigation }) {
           )}
         </View>
       </View>
+
+      {/* SWITCH DE MODO DE LISTA */}
+      <View style={styles.modeSwitchContainer}>
+        <ListModeSwitch
+          value={showLocal}
+          onValueChange={async (v) => {
+            setShowLocal(v);
+            if (v) {
+              await reloadLocalSales();
+            }
+          }}
+          leftLabel="Servidor"
+          rightLabel="Sin Sincronizar"
+        />
+      </View>
       {
-        !offline ?
+        (!showLocal && !offline) ?
           error ?
             <View style={{ height: '100%', width: '100%', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} >
               <Text style={{ fontSize: 22, fontFamily: 'Cairo-Regular', paddingHorizontal: 15, textAlign: 'center', marginBottom: 25 }} >"Ocurrio un error a traer los datos, compruebe su conexion si no es lento"</Text>
@@ -575,24 +646,34 @@ export default function Sale({ navigation }) {
                 )}
                 keyExtractor={(item) => item._id}
                 onEndReached={() => {
-                  if (!loading.open) {
-                    if (search) {
-                      if (search.value === '') {
-                        dispatch(setLoading({
-                          message: `Cargando nuevas ventas`
-                        }))
-                        setQuery({ skip: query.skip + 15, limit: query.limit })
-                      }
+                  // Solo cargar más datos si:
+                  // 1. No estamos ya cargando
+                  // 2. No hay búsqueda activa
+                  // 3. Aún hay más datos para cargar
+                  console.log("limitSales onEndReached", limitSales)
+                  if (25 >= limitSales) {
+                    return
+                  }
+                  console.log("pase por aqui")
+                  if (!loading.open && search.value === '' && query.skip + query.limit < limitSales) {
+                    dispatch(setLoading({
+                      message: `Cargando nuevas ventas`
+                    }))
+                    if (query.skip + query.limit >= limitSales) {
+                      const newValue = limitSales - query.limit
+                      setQuery({ skip: query.skip + newValue, limit: query.limit })
+                      return
                     }
+                    setQuery({ skip: query.skip + query.limit, limit: query.limit })
                   }
                 }}
               />
             </View> :
           <View style={{ flex: 1, paddingHorizontal: 15, paddingTop: 10 }}>
-            <Text style={styles.offlineMessage}>Estas en modo sin conexión</Text>
+            <Text style={styles.offlineMessage}>{showLocal ? 'Listando ventas locales' : 'Estas en modo sin conexión'}</Text>
             <FlatList
               style={{ flex: 1 }}
-              data={[...sales].reverse()}
+              data={filteredLocalSales}
               renderItem={({ item }) => (
                 <SaleItem
                   item={item}
@@ -700,6 +781,10 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  modeSwitchContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dropdownButton: {
     padding: 10,

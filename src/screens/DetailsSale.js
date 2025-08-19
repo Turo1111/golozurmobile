@@ -3,9 +3,7 @@ import React, { useEffect, useState, useContext } from 'react'
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import { getUser } from '../redux/userSlice';
 import apiClient from '../utils/client';
-import Table from '../components/Table';
 import useLocalStorage from '../hooks/useLocalStorage';
-import Button from '../components/Button';
 import { clearLoading, setLoading } from '../redux/loadingSlice'
 import { TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
@@ -13,8 +11,21 @@ import Ionicons from 'react-native-vector-icons/Ionicons'
 import { OfflineContext } from '../context.js/contextOffline';
 import { io } from 'socket.io-client';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { setAlert } from '../redux/alertSlice';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Print from 'expo-print';
+import usePermissionCheck from '../hooks/usePermissionCheck';
+import { Buffer } from 'buffer';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import AlertDeleteSale from '../components/AlertDeleteSale';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
+
+const arrayBufferToBase64 = (buffer) => {
+  return Buffer.from(buffer).toString('base64');
+};
 
 
 export default function DetailsSale({ route, navigation }) {
@@ -26,6 +37,8 @@ export default function DetailsSale({ route, navigation }) {
   const [showAllProducts, setShowAllProducts] = useState(false)
   const dispatch = useAppDispatch();
   const { offline } = useContext(OfflineContext)
+  const { hasPermission: hasPermissionEditSale, isLoading: isLoadingEditSale } = usePermissionCheck('update_sale', () => { })
+  const [openAlertDelete, setOpenAlertDelete] = useState(false)
 
   const getDetails = () => {
     dispatch(setLoading({
@@ -51,16 +64,16 @@ export default function DetailsSale({ route, navigation }) {
   useEffect(() => {
     const socket = io(DB_HOST)
     socket.on(`sale`, (socketData) => {
+      console.log(socketData, 'socketdata details')
       // Verificar si la venta que escucha es la misma que tiene cargada
-      if (socketData.data && socketData.data._id === id) {
-        // Actualizar los detalles de la venta con los nuevos datos
-        setDetails(socketData.data)
-      }
+
+      getDetails()
+
     })
     return () => {
       socket.disconnect();
     };
-  }, [id])
+  }, [id, details])
 
 
 
@@ -83,8 +96,245 @@ export default function DetailsSale({ route, navigation }) {
     };
   };
 
+  const downloadAndSharePDF = async (item) => {
+    const fileName = `venta-${item.r.cliente}.pdf`;
+    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+    dispatch(setLoading({
+      message: `Actualizando ventas`
+    }))
+    try {
+      // Descargar el archivo como ArrayBuffer
+      const response = await apiClient.get(`/sale/print/${item.r._id}`, { responseType: 'arraybuffer' });
+      const pdfArrayBuffer = response.data;
 
+      // Convertir el ArrayBuffer a Base64 usando Buffer
+      const pdfBase64 = arrayBufferToBase64(pdfArrayBuffer);
 
+      // Guardar el archivo en el sistema de archivos de Expo
+      await FileSystem.writeAsStringAsync(fileUri, pdfBase64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Compartir el archivo utilizando expo-sharing
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Compartir PDF',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        alert('La función de compartir no está disponible en este dispositivo');
+      }
+      dispatch(clearLoading())
+    } catch (error) {
+      console.error('Error descargando o compartiendo el PDF:', error);
+      dispatch(clearLoading())
+    }
+  };
+
+  const confirmDeleteSale = async () => {
+    setOpenAlertDelete(false)
+    dispatch(setLoading({
+      message: 'Dando de baja venta'
+    }))
+    try {
+      await apiClient.delete(`/sale/${id}`, {
+        headers: {
+          Authorization: `Bearer ${user.token || userStorage.token}`
+        },
+      })
+      dispatch(clearLoading())
+      dispatch(setAlert({ message: 'Venta dada de baja correctamente', type: 'success' }))
+      navigation.goBack()
+    } catch (e) {
+      console.log(e)
+      dispatch(clearLoading())
+      dispatch(setAlert({ message: `${e.response?.data || 'No se pudo dar de baja la venta'}`, type: 'error' }))
+    }
+  }
+
+  const generatePdf = async (cliente) => {
+    console.log(cliente, 'cliente')
+    let detailsSalePdf = undefined;
+    if (offline) {
+      dispatch(setLoading({
+        message: `Obteniendo venta`
+      }))
+      try {
+        const jsonValue = await AsyncStorage.getItem('saleStorage');
+        if (jsonValue !== null) {
+          const value = JSON.parse(jsonValue);
+          detailsSalePdf = await value.find(elem => elem.cliente === cliente);
+        }
+        dispatch(clearLoading());
+      } catch (e) {
+        dispatch(setAlert({
+          message: 'Hubo un error al obtener la venta 1',
+          type: 'error'
+        }));
+        dispatch(clearLoading());
+      }
+    } else {
+      dispatch(setLoading({
+        message: `Obteniendo venta`
+      }))
+      await apiClient.get(`/sale/${cliente}`, {
+        headers: {
+          Authorization: `Bearer ${user.token || userStorage.token}`
+        },
+      })
+        .then(r => {
+          detailsSalePdf = {
+            itemsSale: r.data.itemsSale,
+            cliente: r.data.r.cliente,
+            total: r.data.r.total,
+            createdAt: r.data.r.createdAt
+          };
+          dispatch(clearLoading());
+        })
+        .catch(e => {
+          dispatch(setAlert({
+            message: 'Hubo un error al obtener la venta 1',
+            type: 'error'
+          }));
+          dispatch(clearLoading());
+        });
+    }
+
+    if (!detailsSalePdf) {
+      dispatch(setAlert({
+        message: 'Hubo un error al obtener la venta 2',
+        type: 'error'
+      }));
+      return;
+    }
+
+    const chunkArray = (array, size) => {
+      const result = [];
+      for (let i = 0; i < array.length; i += size) {
+        result.push(array.slice(i, i + size));
+      }
+      return result;
+    };
+
+    const itemsChunks = chunkArray(detailsSalePdf.itemsSale, 15);
+
+    const generateHtmlContent = (items, chunkIndex, totalChunks) => {
+
+      const itemsText = items.map(item =>
+        `
+          <div class="it">
+            <p class="it">${(item.descripcion).toUpperCase()}</p>
+            <div class="itemList">
+              <div class="flex">
+                <p class="it">${item.cantidad}x</p>
+                <p class="it">$${((item.total / item.cantidad) || item.precio || item.precioUnitario || 'error').toString().toLocaleString('es-ES')}</p>
+              </div>
+              <p class="it">$${(item.total).toString().toLocaleString('es-ES')}</p>
+            </div>
+          </div>
+        `).join('');
+
+      return `
+          <html>
+            <head>
+              <style>
+                body {
+                  font-family: 'Courier New', Courier, monospace;
+                  font-size: 15px;
+                  margin: 0;
+                  padding: 0;
+                }
+                .header {
+                  margin-left: 5px;
+                  padding: 0;
+                }
+                .header h2 {
+                  text-align: center;
+                  padding: 0;
+                  margin-bottom: 5px;
+                  font-size: 15px;
+                }
+                .header p {
+                  padding: 0;
+                  margin: 0;
+                  margin-bottom: 2px;
+                  font-size: 15px;
+                }
+                .details {
+                  margin: 0;
+                  font-size: 15px;
+                  padding: 0;
+                }
+                .flex {
+                  display: flex;
+                  margin: 0;
+                  padding: 0;
+                }
+                .itemList {
+                  display: flex;
+                  padding: 0px 3px;
+                  margin: 0;
+                  padding: 0;
+                  justify-content: space-between;
+                }
+                .it {
+                  margin: 0;
+                  padding: 0;
+                }
+                .total {
+                  margin: 0;
+                  font-weight: bold;
+                  text-align: right;
+                  font-size: 18px;
+                  padding: 0;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h2>GOLOZUR</h2>
+                <p>Fecha: ${detailsSalePdf.createdAt.split("T")[0]}</p>
+                <p>Cliente: ${detailsSalePdf.cliente}</p>
+                <p>*NO VALIDO COMO FACTURA</p>
+                ${totalChunks > 1 ? `<p>Ticket ${chunkIndex + 1} de ${totalChunks}</p>` : ''}
+              </div>
+              <hr/>
+              <div class="details">
+                ${itemsText}
+              </div>
+              <hr/>
+              ${chunkIndex === totalChunks - 1 ? `
+                <div class="total">
+                  <p>Total Neto $ ${(detailsSalePdf.total).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+              ` : ''}
+            </body>
+          </html>
+        `;
+    };
+
+    try {
+      for (let i = 0; i < itemsChunks.length; i++) {
+        const htmlContent = generateHtmlContent(itemsChunks[i], i, itemsChunks.length);
+        const { uri } = await Print.printToFileAsync({
+          html: htmlContent,
+          width: 200,  // 57 mm en puntos
+          height: 192.85
+        });
+
+        const isAvailable = await Sharing.isAvailableAsync();
+        if (isAvailable) {
+          await Sharing.shareAsync(uri);
+        } else {
+          console.log('Compartir no disponible en este dispositivo');
+        }
+      }
+    } catch (error) {
+      console.error('Error generando el PDF:', error);
+    }
+  };
 
   const ProductItem = ({ item }) => {
     // Determinar la categoría - aquí estoy asumiendo que puedes extraerla de la descripción o datos
@@ -146,8 +396,9 @@ export default function DetailsSale({ route, navigation }) {
                   </View>
                   <Text style={styles.infoLabel}>Cliente</Text>
                 </View>
-                <Text style={styles.infoValue}>{details.r.cliente}</Text>
+                <Text style={[styles.infoValue, { color: details.r.estado === 'Cancelado' ? '#FF6B6B' : '#252525' }]}>{details.r.cliente}</Text>
                 <Text style={styles.infoSubtext}>Cliente frecuente</Text>
+                <Text style={[styles.infoSubtext, { color: details.r.estado === 'Cancelado' ? '#FF6B6B' : '#252525' }]}>{details.r.estado}</Text>
               </View>
 
               <View style={styles.infoColumn}>
@@ -162,11 +413,13 @@ export default function DetailsSale({ route, navigation }) {
               </View>
             </View>
 
+
+
             <View style={styles.divider} />
 
             <View style={[styles.financialItem, styles.totalItem]}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalAmount}>${details.r.total}</Text>
+              <Text style={[styles.totalAmount, { color: details.r.estado === 'Cancelado' ? '#FF6B6B' : '#16a34a' }]}>${details.r.total}</Text>
             </View>
 
             {/* <View style={styles.infoRow}>
@@ -181,35 +434,57 @@ export default function DetailsSale({ route, navigation }) {
               <Text style={styles.paymentValue}>Efectivo</Text>
             </View>  */}
           </View>
-
-          {/* Resumen financiero */}
-          {/*  <View style={styles.financialSummaryCard}>
-            <View style={styles.productsHeader}>
-              <View style={styles.productsTitleContainer}>
-                <View style={[styles.iconContainer, { backgroundColor: '#E0FFED' }]}>
-                  <Icon name="file-text" size={16} color="#16a34a" />
-                </View>
-                <Text style={styles.productsTitle}>Resumen Financiero</Text>
-              </View>
-            </View>
-
-            <View style={styles.divider} />
-
-            
-          </View> */}
-
           {/* Botones de acción */}
-          {/*  <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => generatePdf(details.r._id)} >
-            <Icon name="printer" size={18} color="#fff" />
-            <Text style={styles.actionButtonText}>Imprimir</Text>
-          </TouchableOpacity>
+          {
+            hasPermissionEditSale && (
+              <View style={styles.infoCard}>
+                <View style={[styles.infoRow]}>
+                  <View style={styles.infoColumn}>
+                    <View style={[styles.iconLabelContainer, { marginBottom: 0 }]}>
+                      <View style={[styles.iconContainer, { backgroundColor: '#E6F0FF' }]}>
+                        <Ionicons name="ellipsis-vertical" size={16} color="#3b82f6" />
+                      </View>
+                      <Text style={styles.infoLabel}>Acciones</Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', marginBottom: 15 }}>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: '#FFF0E0' }]} // Naranja claro para editar
+                    onPress={() => navigation.navigate('EditSale', { id })}
+                  >
+                    <Icon name="edit-2" size={22} color="#f97316" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: '#E0FFED' }]} // Verde claro para PDF
+                    onPress={() => downloadAndSharePDF(details)}
+                  >
+                    <Icon name="file-text" size={22} color="#16a34a" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: '#E6F0FF' }]} // Azul claro para imprimir
+                    onPress={() => generatePdf(details.r._id)}
+                  >
+                    <Icon name="printer" size={22} color="#3b82f6" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#FFE6E6' }]} onPress={() => setOpenAlertDelete(true)}>
+                    <FontAwesome name='trash' size={22} color='#FF6B6B' />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )
+          }
 
-          <TouchableOpacity style={[styles.actionButton, { backgroundColor: '#65a30d' }]} onPress={() => downloadAndSharePDF(details)}>
-            <Icon name="file-text" size={18} color="#fff" />
-            <Text style={styles.actionButtonText}>Generar PDF</Text>
-          </TouchableOpacity>
-        </View> */}
+          {openAlertDelete && (
+            <AlertDeleteSale
+              open={openAlertDelete}
+              onClose={() => setOpenAlertDelete(false)}
+              confirm={confirmDeleteSale}
+              cliente={details?.r?.cliente}
+            />
+          )}
+
+          {/* Productos */}
 
           {/* Productos */}
           <View style={styles.productsCard}>
@@ -248,6 +523,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2.5,
     elevation: 2,
+  },
+  actionButton: {
+    padding: 8,
+    borderRadius: 10,
   },
   infoRow: {
     flexDirection: 'row',
@@ -422,28 +701,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: '#16a34a',
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3b82f6',
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 15,
-    flex: 0.48,
-    elevation: 1,
-  },
-  actionButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '700',
-    marginLeft: 10,
   },
   shareButton: {
     backgroundColor: '#f97316',

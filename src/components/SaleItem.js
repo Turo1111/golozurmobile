@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 
 const getInitials = (name) => {
     if (!name) return '?';
@@ -34,14 +35,14 @@ const SaleItem = ({
                         <Text style={styles.clientAvatarText}>{getInitials(item.cliente)}</Text>
                     </View>
                     <View style={styles.clientInfo}>
-                        <Text style={styles.clientName}>{item.cliente}</Text>
+                        <Text style={[styles.clientName, { color: item.estado === 'Cancelado' ? '#FF6B6B' : '#252525' }]}>{item.cliente}</Text>
                         {/* <Text style={styles.clientTag}>Cliente frecuente</Text> DESPUES AGREGAR AQUI LA CIUDAD */}
                     </View>
                 </View>
                 <View style={styles.priceContainer}>
-                    <Text style={styles.salePrice}>${item.total?.toFixed(2) || '---'}</Text>
-                    <View style={styles.statusBadge}>
-                        <Text style={styles.statusText}>{item.estado || 'No definido'}</Text>
+                    <Text style={[styles.salePrice, { color: item.estado === 'Cancelado' ? '#FF6B6B' : '#16a34a' }]}>${item.total?.toFixed(2) || '---'}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: item.estado === 'Cancelado' ? '#FFE6E6' : '#dcfce7' }]}>
+                        <Text style={[styles.statusText, { color: item.estado === 'Cancelado' ? '#FF6B6B' : '#16a34a' }]}>{item.estado || 'No definido'}</Text>
                     </View>
                 </View>
             </View>
