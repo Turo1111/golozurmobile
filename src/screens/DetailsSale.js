@@ -20,6 +20,9 @@ import usePermissionCheck from '../hooks/usePermissionCheck';
 import { Buffer } from 'buffer';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import AlertDeleteSale from '../components/AlertDeleteSale';
+import { WebView } from 'react-native-webview';
+import { Linking } from 'react-native';
+import ReadOnlyClientMapModal from '../components/ReadOnlyClientMapModal'
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
@@ -39,6 +42,7 @@ export default function DetailsSale({ route, navigation }) {
   const { offline } = useContext(OfflineContext)
   const { hasPermission: hasPermissionEditSale, isLoading: isLoadingEditSale } = usePermissionCheck('update_sale', () => { })
   const [openAlertDelete, setOpenAlertDelete] = useState(false)
+  const [mapVisible, setMapVisible] = useState(false)
 
   const getDetails = () => {
     dispatch(setLoading({
@@ -64,7 +68,6 @@ export default function DetailsSale({ route, navigation }) {
   useEffect(() => {
     const socket = io(DB_HOST)
     socket.on(`sale`, (socketData) => {
-      console.log(socketData, 'socketdata details')
       // Verificar si la venta que escucha es la misma que tiene cargada
 
       getDetails()
@@ -154,8 +157,37 @@ export default function DetailsSale({ route, navigation }) {
     }
   }
 
+  const openInGoogleMaps = () => {
+    if (!details?.cliente?.lat || !details?.cliente?.lng) return;
+    const lat = details.cliente.lat;
+    const lng = details.cliente.lng;
+    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    Linking.openURL(url).catch(() => { });
+  }
+
+  const subscribeToClientLocation = (onLoc) => {
+    try {
+      const socket = io(DB_HOST)
+      const clientId = details?.cliente?._id || details?.cliente?.id || details?.r?.cliente || null
+      const handler = (payload) => {
+        try {
+          const pid = payload?.clientId || payload?.cliente || payload?.id
+          if (clientId && pid && String(pid) !== String(clientId)) return
+          const lat = parseFloat(payload?.lat)
+          const lng = parseFloat(payload?.lng)
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            onLoc({ lat, lng, address: payload?.address })
+          }
+        } catch (_) { }
+      }
+      socket.on('client_location', handler)
+      return () => {
+        try { socket.off('client_location', handler); socket.disconnect() } catch (_) { }
+      }
+    } catch (_) { return undefined }
+  }
+
   const generatePdf = async (cliente) => {
-    console.log(cliente, 'cliente')
     let detailsSalePdf = undefined;
     if (offline) {
       dispatch(setLoading({
@@ -363,7 +395,6 @@ export default function DetailsSale({ route, navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F6F8FA' }}>
-      {/* Header - No modificar */}
       <View style={{ backgroundColor: '#2563eb', borderBottomLeftRadius: 18, borderBottomRightRadius: 18, paddingTop: 50, paddingBottom: 18, paddingHorizontal: 15, elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -386,7 +417,6 @@ export default function DetailsSale({ route, navigation }) {
           style={styles.container}
           showsVerticalScrollIndicator={false}
         >
-          {/* Tarjeta de Información Cliente y Fecha */}
           <View style={styles.infoCard}>
             <View style={[styles.infoRow]}>
               <View style={styles.infoColumn}>
@@ -422,19 +452,7 @@ export default function DetailsSale({ route, navigation }) {
               <Text style={[styles.totalAmount, { color: details.r.estado === 'Cancelado' ? '#FF6B6B' : '#16a34a' }]}>${details.r.total}</Text>
             </View>
 
-            {/* <View style={styles.infoRow}>
-              <View style={styles.infoColumn}>
-                <View style={styles.iconLabelContainer}>
-                  <View style={[styles.iconContainer, { backgroundColor: '#E0FFED' }]}>
-                    <Icon name="credit-card" size={16} color="#16a34a" />
-                  </View>
-                  <Text style={styles.infoLabel}>Método de pago</Text>
-                </View>
-              </View>
-              <Text style={styles.paymentValue}>Efectivo</Text>
-            </View>  */}
           </View>
-          {/* Botones de acción */}
           {
             hasPermissionEditSale && (
               <View style={styles.infoCard}>
@@ -450,19 +468,19 @@ export default function DetailsSale({ route, navigation }) {
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', marginBottom: 15 }}>
                   <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: '#FFF0E0' }]} // Naranja claro para editar
+                    style={[styles.actionButton, { backgroundColor: '#FFF0E0' }]}
                     onPress={() => navigation.navigate('EditSale', { id })}
                   >
                     <Icon name="edit-2" size={22} color="#f97316" />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: '#E0FFED' }]} // Verde claro para PDF
+                    style={[styles.actionButton, { backgroundColor: '#E0FFED' }]}
                     onPress={() => downloadAndSharePDF(details)}
                   >
                     <Icon name="file-text" size={22} color="#16a34a" />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: '#E6F0FF' }]} // Azul claro para imprimir
+                    style={[styles.actionButton, { backgroundColor: '#E6F0FF' }]}
                     onPress={() => generatePdf(details.r._id)}
                   >
                     <Icon name="printer" size={22} color="#3b82f6" />
@@ -484,9 +502,6 @@ export default function DetailsSale({ route, navigation }) {
             />
           )}
 
-          {/* Productos */}
-
-          {/* Productos */}
           <View style={styles.productsCard}>
             <View style={styles.productsHeader}>
               <View style={styles.productsTitleContainer}>
@@ -501,6 +516,71 @@ export default function DetailsSale({ route, navigation }) {
               <ProductItem key={index.toString()} item={item} />
             ))}
           </View>
+
+          {details?.cliente?.lat && details?.cliente?.lng && (
+            <View style={styles.mapCard}>
+              <View style={styles.productsHeader}>
+                <View style={styles.productsTitleContainer}>
+                  <View style={[styles.iconContainer, { backgroundColor: '#ECFDF5' }]}>
+                    <Icon name="map" size={16} color="#10B981" />
+                  </View>
+                  <Text style={styles.productsTitle}>Ubicación del cliente</Text>
+                </View>
+              </View>
+              {/* <WebView
+                style={styles.map}
+                originWhitelist={["*"]}
+                source={{
+                  html: `
+                  <!DOCTYPE html>
+                  <html>
+                    <head>
+                      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+                      <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+                      <style>
+                        #map { height: 100vh; width: 100vw; }
+                        html, body { margin: 0; padding: 0; }
+                      </style>
+                    </head>
+                    <body>
+                      <div id="map"></div>
+                      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+                      <script>
+                        var lat = ${details.cliente.lat};
+                        var lng = ${details.cliente.lng};
+                        var map = L.map('map', { zoomControl: false, attributionControl: true }).setView([lat, lng], 15);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                          maxZoom: 19,
+                          attribution: '&copy; OpenStreetMap contributors'
+                        }).addTo(map);
+                        L.marker([lat, lng]).addTo(map).bindPopup('${details?.r?.cliente || 'Cliente'}');
+                      </script>
+                    </body>
+                  </html>
+                ` }}
+              /> */}
+              {details?.cliente?.address && (
+                <Text style={{ marginTop: 10, color: '#64748b' }}>{details.cliente.address}</Text>
+              )}
+              <TouchableOpacity style={styles.openMapsButton} onPress={openInGoogleMaps}>
+                <Icon name="map-pin" size={16} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Abrir en Google Maps</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.openMapsButton, { marginTop: 10, backgroundColor: '#0ea5e9' }]} onPress={() => setMapVisible(true)}>
+                <Icon name="maximize" size={16} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Ver mapa en pantalla completa</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {mapVisible && (
+            <ReadOnlyClientMapModal
+              visible={mapVisible}
+              onClose={() => setMapVisible(false)}
+              initialValue={{ lat: details?.cliente?.lat, lng: details?.cliente?.lng, address: details?.cliente?.address }}
+              subscribeToLocation={subscribeToClientLocation}
+            />
+          )}
 
           <View style={{ height: 20 }} />
         </ScrollView>
@@ -586,6 +666,26 @@ const styles = StyleSheet.create({
     shadowRadius: 2.5,
     elevation: 2,
   },
+  mapCard: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2.5,
+    elevation: 2,
+  },
+  openMapsButton: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb',
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
   productsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -618,6 +718,11 @@ const styles = StyleSheet.create({
   },
   productsList: {
     marginTop: 5,
+  },
+  map: {
+    width: '100%',
+    height: 220,
+    borderRadius: 12,
   },
   productItem: {
     flexDirection: 'row',

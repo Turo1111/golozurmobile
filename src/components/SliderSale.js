@@ -1,15 +1,11 @@
 import { StyleSheet, TouchableOpacity, View, Text } from 'react-native'
 import React, { useState } from 'react'
-import Button from './Button'
-import { useAppSelector } from '../redux/hook'
-import { getLoading } from '../redux/loadingSlice'
 import Icon from 'react-native-vector-icons/Feather';
 
 
 export default function SliderSale({ itemSlide = [1, 2, 3], onCloseSheet, finishSale }) {
 
     const [indexActive, setIndexActive] = useState(0)
-    const loading = useAppSelector(getLoading)
 
     const [loadingButton, setLoadingButton] = useState(false)
 
@@ -46,26 +42,32 @@ export default function SliderSale({ itemSlide = [1, 2, 3], onCloseSheet, finish
                         shadowRadius: 3,
                         elevation: 3,
                     }}
-                    onPress={onCloseSheet}
+                    onPress={() => {
+                        if (indexActive > 0) {
+                            downSlide()
+                        } else {
+                            onCloseSheet && onCloseSheet()
+                        }
+                    }}
                 >
-                    <Icon name="x" size={16} color="#fff" style={{ marginRight: 8 }} />
+                    <Icon name={indexActive > 0 ? 'arrow-left' : 'x'} size={16} color="#fff" style={{ marginRight: 8 }} />
                     <Text style={{
                         color: '#fff',
                         fontSize: 14,
                         fontWeight: '600',
                         fontFamily: 'Cairo-Bold'
                     }}>
-                        Volver
+                        {indexActive > 0 ? 'Anterior' : 'Volver'}
                     </Text>
                 </TouchableOpacity>
                 {
-                    loadingButton ?
+                    indexActive < (itemSlide.length - 1) ? (
                         <TouchableOpacity
                             style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                backgroundColor: '#90EE90',
+                                backgroundColor: '#2563eb',
                                 paddingVertical: 12,
                                 paddingHorizontal: 20,
                                 borderRadius: 10,
@@ -77,50 +79,85 @@ export default function SliderSale({ itemSlide = [1, 2, 3], onCloseSheet, finish
                                 shadowRadius: 3,
                                 elevation: 3,
                             }}
+                            onPress={upSlide}
                         >
-                            <Icon name="check" size={16} color="#fff" style={{ marginRight: 8 }} />
                             <Text style={{
                                 color: '#fff',
                                 fontSize: 14,
                                 fontWeight: '600',
-                                fontFamily: 'Cairo-Bold'
+                                fontFamily: 'Cairo-Bold',
+                                marginRight: 8
                             }}>
-                                Finalizar
+                                Siguiente
                             </Text>
+                            <Icon name="arrow-right" size={16} color="#fff" />
                         </TouchableOpacity>
-                        :
-                        <TouchableOpacity
-                            style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: '#38b36a',
-                                paddingVertical: 12,
-                                paddingHorizontal: 20,
-                                borderRadius: 10,
-                                flex: 1,
-                                marginLeft: 8,
-                                shadowColor: '#000',
-                                shadowOffset: { width: 0, height: 2 },
-                                shadowOpacity: 0.1,
-                                shadowRadius: 3,
-                                elevation: 3,
-                            }}
-                            onPress={() => {
-                                setLoadingButton(true)
-                                finishSale()
-                            }}
-                        >
-                            <Icon name="check" size={16} color="#fff" style={{ marginRight: 8 }} />
-                            <Text style={{
-                                color: '#fff',
-                                fontSize: 14,
-                                fontWeight: '600',
-                                fontFamily: 'Cairo-Bold'
-                            }}>
-                                Finalizar
-                            </Text>
-                        </TouchableOpacity>
+                    ) : (
+                        loadingButton ? (
+                            <TouchableOpacity
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: '#90EE90',
+                                    paddingVertical: 12,
+                                    paddingHorizontal: 20,
+                                    borderRadius: 10,
+                                    flex: 1,
+                                    marginLeft: 8,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 2 },
+                                    shadowOpacity: 0.1,
+                                    shadowRadius: 3,
+                                    elevation: 3,
+                                }}
+                            >
+                                <Icon name="check" size={16} color="#fff" style={{ marginRight: 8 }} />
+                                <Text style={{
+                                    color: '#fff',
+                                    fontSize: 14,
+                                    fontWeight: '600',
+                                    fontFamily: 'Cairo-Bold'
+                                }}>
+                                    Finalizar
+                                </Text>
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    backgroundColor: '#38b36a',
+                                    paddingVertical: 12,
+                                    paddingHorizontal: 20,
+                                    borderRadius: 10,
+                                    flex: 1,
+                                    marginLeft: 8,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 2 },
+                                    shadowOpacity: 0.1,
+                                    shadowRadius: 3,
+                                    elevation: 3,
+                                }}
+                                onPress={async () => {
+                                    setLoadingButton(true)
+                                    finishSale && await finishSale()
+                                    setLoadingButton(false)
+                                }}
+                            >
+                                <Icon name="check" size={16} color="#fff" style={{ marginRight: 8 }} />
+                                <Text style={{
+                                    color: '#fff',
+                                    fontSize: 14,
+                                    fontWeight: '600',
+                                    fontFamily: 'Cairo-Bold'
+                                }}>
+                                    Finalizar
+                                </Text>
+                            </TouchableOpacity>
+                        )
+                    )
                 }
 
             </View>

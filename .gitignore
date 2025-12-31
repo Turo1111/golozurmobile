@@ -37,3 +37,6 @@ yarn-error.*
 android
 
 .env
+
+.env.production
+.env.development

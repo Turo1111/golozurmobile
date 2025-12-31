@@ -14,10 +14,15 @@ export default () => ({
             resizeMode: "contain",
             backgroundColor: "#ffffff"
         },
-        plugins: ["expo-image-picker"],
+        plugins: [
+            "expo-image-picker"
+        ],
         assetBundlePatterns: ["**/*"],
         ios: {
-            supportsTablet: true
+            supportsTablet: true,
+            config: {
+                googleMapsApiKey: process.env.GOOGLE_MAPS_IOS_API_KEY || process.env.GOOGLE_MAPS_API_KEY
+            }
         },
         android: {
             adaptiveIcon: {
@@ -25,6 +30,11 @@ export default () => ({
                 backgroundColor: "#ffffff"
             },
             package: "com.turo1111.admgolozur",
+            config: {
+                googleMaps: {
+                    apiKey: process.env.GOOGLE_MAPS_API_KEY
+                }
+            },
             permissions: [
                 "android.permission.RECEIVE_BOOT_COMPLETED",
                 "android.permission.FOREGROUND_SERVICE",

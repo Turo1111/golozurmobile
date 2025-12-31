@@ -147,11 +147,8 @@ export default function Sale({ navigation }) {
       if (filterUser !== null) {
         setData(response.data.array)
         setLimitSales(response.data.longitud)
-        console.log("response.data.longitud", response.data.longitud)
         return
       } else {
-        console.log("response.data.array", response.data.array.length)
-        console.log("response.data.longitud", response.data.longitud)
         setData((prevData) => {
           if (prevData) {
             if (prevData.length === 0) {
@@ -179,6 +176,7 @@ export default function Sale({ navigation }) {
   }
 
   const getSaleSearch = async (input) => {
+    console.log("getSaleSearch", input)
     dispatch(setLoading({
       message: `Actualizando ventas`
     }))
@@ -216,6 +214,7 @@ export default function Sale({ navigation }) {
     let timeoutId;
 
     if (search.value !== '' && !showLocal) {
+      console.log("search.value", search.value)
       timeoutId = setTimeout(() => {
         getSaleSearch(search.value);
       }, 1000);
@@ -235,7 +234,6 @@ export default function Sale({ navigation }) {
   }, [user, offline, showLocal]);
 
   useEffect(() => {
-    console.log("query", query)
     if (!showLocal) {
       getSale(query.skip, query.limit, selectedUser?._id)
     }
@@ -573,7 +571,7 @@ export default function Sale({ navigation }) {
                     styles.userItem,
                     selectedUser?._id === item._id && styles.selectedUserItem
                   ]}
-                  onPress={() => { setSelectedUser(item); setShowUserDropdown(false), console.log("item", item) }}
+                  onPress={() => { setSelectedUser(item); setShowUserDropdown(false) }}
                 >
                   <View style={styles.userInfo}>
                     <View style={styles.userInitials}>
@@ -650,11 +648,9 @@ export default function Sale({ navigation }) {
                   // 1. No estamos ya cargando
                   // 2. No hay búsqueda activa
                   // 3. Aún hay más datos para cargar
-                  console.log("limitSales onEndReached", limitSales)
                   if (25 >= limitSales) {
                     return
                   }
-                  console.log("pase por aqui")
                   if (!loading.open && search.value === '' && query.skip + query.limit < limitSales) {
                     dispatch(setLoading({
                       message: `Cargando nuevas ventas`

@@ -20,6 +20,7 @@ import EditUser from '../screens/EditUser';
 import Client from '../screens/Client';
 import NewClient from '../screens/NewClient';
 import EditClient from '../screens/EditClient';
+import ViewClient from '../screens/ViewClient';
 import InfoStorage from '../screens/InfoStorage';
 
 const Stack = createNativeStackNavigator();
@@ -47,6 +48,7 @@ export default function NavigationStack() {
       <Stack.Screen name='Client' component={Client} options={{ headerShown: false }} />
       <Stack.Screen name='NewClient' component={NewClient} options={{ headerShown: false }} />
       <Stack.Screen name='EditClient' component={EditClient} options={{ headerShown: false }} />
+      <Stack.Screen name='ViewClient' component={ViewClient} options={{ headerShown: false }} />
       <Stack.Screen name='InfoStorage' component={InfoStorage} options={{ headerShown: false }} />
     </Stack.Navigator>
   )

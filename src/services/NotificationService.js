@@ -89,34 +89,51 @@ async function sendPingNotification() {
 
 async function syncProduct() {
     const pingResult = await ping();
+
     if (pingResult.success) {
         const productInStorage = await AsyncStorage.getItem('productStorage')
         const productInStorageParsed = JSON.parse(productInStorage)
+        const fechaHoy = new Date()
+        /* fechaHoy.setHours(fechaHoy.getHours() - 3) */
+
         const dateProduct = await getDateProduct()
+
         if (productInStorageParsed?.product?.length > 0) {
             // Sumar 3 horas a la fecha de lastUpdate
             const lastUpdate = new Date(productInStorageParsed?.lastUpdate);
-            lastUpdate.setHours(lastUpdate.getHours());
-            if (productInStorageParsed?.lastUpdate < dateProduct?.ultimaUpdatedAt || productInStorageParsed?.lastUpdate < dateProduct?.ultimaCreatedAt) {
+            const lastUpdateBd = new Date(dateProduct?.ultimaUpdatedAt)
+            const lastCreateBd = new Date(dateProduct?.ultimaCreatedAt)
+
+            lastUpdate.setHours(fechaHoy.getHours() - 3)
+            /* lastCreateBd.setHours(fechaHoy.getHours() + 3) */
+
+            if (lastUpdate < lastUpdateBd || lastUpdate < lastCreateBd) {
                 const listProduct = await getProduct()
+
                 const productStorage = {
                     product: listProduct,
-                    lastUpdate: new Date().toISOString()
+                    lastUpdate: fechaHoy
                 }
                 await AsyncStorage.setItem('productStorage', JSON.stringify(productStorage))
+
                 return
             } else {
                 return
             }
         }
+
         const listProduct = await getProduct()
+
         const productStorage = {
             product: listProduct,
             lastUpdate: new Date().toISOString()
         }
         await AsyncStorage.setItem('productStorage', JSON.stringify(productStorage))
         return
+    } else {
+        console.log('syncProduct: Ping falló, no se puede sincronizar productos');
     }
+
 }
 
 
@@ -176,7 +193,8 @@ export async function registerBackgroundPingTask() {
 
         if (!isRegistered) {
             await BackgroundFetch.registerTaskAsync(PING_TASK, {
-                minimumInterval: 60 * 5, // 1 minuto
+                minimumInterval: 60 * 5,
+                /* minimumInterval: 30, */
                 stopOnTerminate: false,
                 startOnBoot: true,
             });
@@ -191,7 +209,8 @@ export async function registerBackgroundSyncProductTask() {
 
         if (!isRegistered) {
             await BackgroundFetch.registerTaskAsync(SYNCPRODUCT_TASK, {
-                minimumInterval: 60, // 1 minuto
+                minimumInterval: 60 * 5,
+                /* minimumInterval: 30, */
                 stopOnTerminate: false,
                 startOnBoot: true,
             });
@@ -217,7 +236,7 @@ export function startPingChecks() {
         if (AppState.currentState === 'active') {
             await sendPingNotification();
         }
-    }, 600000); // 10 minutos (600000 ms)
+    }, 300000); // 10 minutos (600000 ms)
 }
 
 export function startSyncProductChecks() {
@@ -230,7 +249,7 @@ export function startSyncProductChecks() {
         if (AppState.currentState === 'active') {
             await syncProduct();
         }
-    }, 60000); // 1 minuto (60000 ms)
+    }, 300000); // 1 minuto (60000 ms)
 }
 
 // Detener verificaciones de ping

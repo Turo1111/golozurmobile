@@ -17,10 +17,11 @@ import usePermissionCheck from '../hooks/usePermissionCheck';
 import { MaterialIcons } from '@expo/vector-icons';
 import Icon from 'react-native-vector-icons/Feather';
 import Constants from 'expo-constants';
+import ReadOnlyClientMapModal from '../components/ReadOnlyClientMapModal'
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
-const renderClientItem = ({ item, navigation, isConnected }) => {
+const renderClientItem = ({ item, navigation, isConnected, onOpenMap }) => {
     return (
         <TouchableOpacity
             style={styles.clientCard}
@@ -41,17 +42,13 @@ const renderClientItem = ({ item, navigation, isConnected }) => {
                     <Text style={styles.clientName}>{item.nombreCompleto}</Text>
 
                     <View style={styles.clientDetails}>
-                        <View style={styles.clientDetail}>
-                            <Icon name="map-pin" size={12} color="#7F8487" style={styles.detailIcon} />
-                            <Text style={styles.detailText}>
-                                {item.ciudad?.descripcion || 'Sin ciudad'}
-                            </Text>
-                        </View>
 
-                        {item.direccion && (
+                        {!item.address && (item.lat && item.lng) && (
                             <View style={styles.clientDetail}>
-                                <Icon name="home" size={12} color="#7F8487" style={styles.detailIcon} />
-                                <Text style={styles.detailText}>{item.direccion}</Text>
+                                <Icon name="map" size={12} color="#7F8487" style={styles.detailIcon} />
+                                <Text style={styles.detailText}>
+                                    Lat: {item.lat.toFixed ? item.lat.toFixed(5) : item.lat}, Lng: {item.lng.toFixed ? item.lng.toFixed(5) : item.lng}
+                                </Text>
                             </View>
                         )}
 
@@ -63,17 +60,34 @@ const renderClientItem = ({ item, navigation, isConnected }) => {
                                 </Text>
                             </View>
                         )}
+
+                        {item.address && (
+                            <View style={styles.clientDetail}>
+                                <Icon name="map" size={12} color="#2563eb" style={styles.detailIcon} />
+                                <Text style={[styles.detailText, { color: '#2563eb' }]} numberOfLines={1}>
+                                    {item.address}
+                                </Text>
+                            </View>
+                        )}
                     </View>
                 </View>
             </View>
 
             {/* Botón de editar */}
-            <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => navigation.navigate('EditClient', { id: item._id, name: item.nombreCompleto })}
-            >
-                <Icon name="chevron-right" size={20} color="#b0b0b0" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity
+                    style={[styles.editButton, { marginRight: 6 }]}
+                    onPress={() => onOpenMap && onOpenMap(item)}
+                >
+                    <Icon name="map" size={18} color="#2563eb" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => navigation.navigate('EditClient', { id: item._id, name: item.nombreCompleto })}
+                >
+                    <Icon name="chevron-right" size={20} color="#b0b0b0" />
+                </TouchableOpacity>
+            </View>
         </TouchableOpacity>
     );
 }
@@ -100,6 +114,8 @@ export default function Client({ navigation }) {
     const search = useInputValue('', '')
     const { offline } = useContext(OfflineContext)
     const [isLoading, setIsLoading] = useState(true)
+    const [mapVisible, setMapVisible] = useState(false)
+    const [mapClient, setMapClient] = useState(null) // { id, lat, lng, address }
 
     const { hasPermission: hasPermissionReadClient, isLoading: isLoadingReadClient } = usePermissionCheck('read_client', () => { })
     const { hasPermission: hasPermissionCreateClient, isLoading: isLoadingCreateClient } = usePermissionCheck('create_client', () => { })
@@ -231,6 +247,34 @@ export default function Client({ navigation }) {
         return null
     }
 
+    const subscribeToClientLocation = (client) => (onLoc) => {
+        try {
+            const socket = io(DB_HOST)
+            const clientId = client?._id || client?.id
+            const handler = (payload) => {
+                try {
+                    const pid = payload?.clientId || payload?.cliente || payload?.id
+                    if (clientId && pid && String(pid) !== String(clientId)) return
+                    const lat = parseFloat(payload?.lat)
+                    const lng = parseFloat(payload?.lng)
+                    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                        onLoc({ lat, lng, address: payload?.address })
+                    }
+                } catch (_) { }
+            }
+            socket.on('client_location', handler)
+            return () => {
+                try { socket.off('client_location', handler); socket.disconnect() } catch (_) { }
+            }
+        } catch (_) { return undefined }
+    }
+
+    const handleOpenMap = (item) => {
+        if (!item?.lat || !item?.lng) return
+        setMapClient({ id: item._id, lat: item.lat, lng: item.lng, address: item.address })
+        setMapVisible(true)
+    }
+
     const renderContent = () => {
         if (!offline) {
             const displayData = search.value !== '' ? dataSearch : data;
@@ -239,7 +283,7 @@ export default function Client({ navigation }) {
                 <FlatList
                     style={styles.clientsList}
                     data={displayData}
-                    renderItem={({ item }) => renderClientItem({ item, navigation, isConnected })}
+                    renderItem={({ item }) => renderClientItem({ item, navigation, isConnected, onOpenMap: handleOpenMap })}
                     keyExtractor={(item) => item._id.toString()}
                     contentContainerStyle={[
                         styles.listContentContainer,
@@ -331,6 +375,12 @@ export default function Client({ navigation }) {
             <View style={styles.contentContainer}>
                 {renderContent()}
             </View>
+            <ReadOnlyClientMapModal
+                visible={mapVisible}
+                onClose={() => setMapVisible(false)}
+                initialValue={mapClient ? { lat: mapClient.lat, lng: mapClient.lng, address: mapClient.address } : null}
+                subscribeToLocation={mapClient ? subscribeToClientLocation(mapClient) : undefined}
+            />
         </View>
     )
 }

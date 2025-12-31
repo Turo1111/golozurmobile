@@ -25,6 +25,7 @@ import * as Sharing from 'expo-sharing';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 import Icon from 'react-native-vector-icons/Feather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import SelectClient from '../components/SelectClient';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
@@ -102,6 +103,7 @@ export default function NewSale({ navigation }) {
   const today = new Date()
   //const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
   const { createSale } = useContext(OfflineContext)
+  const [idCliente, setIdCliente] = useState(null)
 
   const { hasPermission: hasPermissionCreateSale, isLoading: isLoadingCreateSale } = usePermissionCheck('create_sale', () => { })
 
@@ -246,7 +248,7 @@ export default function NewSale({ navigation }) {
       }))
       return
     }
-    if (cliente.value === '') {
+    if (cliente.value === '' && idCliente === null) {
       dispatch(setAlert({
         message: `No se ingreso ningun cliente`,
         type: 'warning'
@@ -260,7 +262,7 @@ export default function NewSale({ navigation }) {
     dispatch(setLoading({
       message: `Guardando productos`
     }))
-    apiClient.post('/sale', { itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value }, {
+    apiClient.post('/sale', { itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value, idCliente: idCliente }, {
       headers: {
         Authorization: `Bearer ${user.token || userStorage.token}`
       }
@@ -533,6 +535,7 @@ export default function NewSale({ navigation }) {
       <ResumeBottomSheet onPress={() => setOpenBS(true)} totalCart={total} longCart={lineaVenta.length} />
       <MyBottomSheet open={openBS} onClose={() => setOpenBS(false)} fullScreen={true} >
         <SliderSale itemSlide={[
+          <SelectClient cliente={cliente} setIdCliente={setIdCliente} idCliente={idCliente} />,
           <CartSale cliente={cliente} lineaVenta={lineaVenta} total={total} porcentaje={porcentaje}
             onClick={(item) => setLineaVenta((prevData) => prevData.filter((elem) => elem._id !== item._id))}
             upQTY={(id) => setLineaVenta((prevData) => prevData.map((elem) => {

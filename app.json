@@ -11,7 +11,19 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "plugins": ["expo-image-picker"],
+    "plugins": [
+      "expo-image-picker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraMavenRepos": [
+              "https://plugins.gradle.org/m2"
+            ]
+          }
+        }
+      ]
+    ],
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -29,7 +41,7 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE"
-      ]                                                                    
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

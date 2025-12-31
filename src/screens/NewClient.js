@@ -7,21 +7,20 @@ import { setAlert } from '../redux/alertSlice'
 import apiClient from '../utils/client'
 import useLocalStorage from '../hooks/useLocalStorage'
 import Button from '../components/Button'
-import InputSelectAdd from '../components/InputSelectAdd'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
 import usePermissionCheck from '../hooks/usePermissionCheck'
 import Icon from 'react-native-vector-icons/Feather'
 import { OfflineContext } from '../context.js/contextOffline'
+import ClienteLocationPicker from '../components/ClienteLocationPicker'
+import FullScreenMapModal from '../components/FullScreenMapModal'
 
 const HEADER_BLUE = '#2563eb';
 
 const validationSchema = Yup.object().shape({
     nombreCompleto: Yup.string()
         .required('El nombre completo es obligatorio')
-        .min(3, 'El nombre debe tener al menos 3 caracteres'),
-    idCiudad: Yup.string()
-        .required('Debe seleccionar una ciudad')
+        .min(3, 'El nombre debe tener al menos 3 caracteres')
 })
 
 export default function NewClient({ navigation }) {
@@ -35,17 +34,19 @@ export default function NewClient({ navigation }) {
     const formik = useFormik({
         initialValues: {
             nombreCompleto: '',
-            direccion: '',
+            address: '',
             telefonos: [],
-            idCiudad: '',
-            NameCiudad: ''
+            lat: null,
+            lng: null,
+            description: ''
         },
         validationSchema,
         onSubmit: (values) => {
+
             // Validar que al menos un teléfono esté presente
-            if (values.telefonos.length === 0) {
+            if (values.nombreCompleto === '') {
                 dispatch(setAlert({
-                    message: 'Debe agregar al menos un teléfono',
+                    message: 'Debe agregar un nombre completo',
                     type: 'warning'
                 }))
                 return
@@ -55,7 +56,9 @@ export default function NewClient({ navigation }) {
                 message: 'Creando cliente'
             }))
 
-            apiClient.post('/client', values, {
+            const payload = { ...values }
+
+            apiClient.post('/client', payload, {
                 headers: {
                     Authorization: `Bearer ${user.token || userStorage.token}`
                 },
@@ -80,6 +83,20 @@ export default function NewClient({ navigation }) {
 
     const [telefonos, setTelefonos] = useState([])
     const [telefonoInput, setTelefonoInput] = useState('')
+    const [location, setLocation] = useState(null)
+    const [mapVisible, setMapVisible] = useState(false)
+
+    useEffect(() => {
+        if (location?.lat && location?.lng) {
+            formik.setFieldValue('lat', location.lat)
+            formik.setFieldValue('lng', location.lng)
+            if (location.address) formik.setFieldValue('address', location.address)
+        } else {
+            formik.setFieldValue('lat', null)
+            formik.setFieldValue('lng', null)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location])
 
     const addTelefono = () => {
         if (telefonoInput.trim() && !isNaN(telefonoInput)) {
@@ -133,7 +150,7 @@ export default function NewClient({ navigation }) {
                     </View>
 
                     <View style={styles.fieldContainer}>
-                        <Text style={styles.fieldLabel}>Nombre Completo *</Text>
+                        <Text style={styles.fieldLabel}>Nombre Completo (Obligatorio)</Text>
                         <TextInput
                             style={[
                                 styles.input,
@@ -148,55 +165,8 @@ export default function NewClient({ navigation }) {
                             <Text style={styles.errorText}>{formik.errors.nombreCompleto}</Text>
                         )}
                     </View>
-
                     <View style={styles.fieldContainer}>
-                        <Text style={styles.fieldLabel}>Dirección</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={formik.values.direccion}
-                            onChangeText={formik.handleChange('direccion')}
-                            onBlur={formik.handleBlur('direccion')}
-                            placeholder="Ingrese la dirección del cliente"
-                        />
-                    </View>
-                </View>
-
-                {/* UBICACIÓN */}
-                <View style={styles.sectionContainer}>
-                    <View style={styles.sectionHeader}>
-                        <View style={[styles.sectionIcon, { backgroundColor: '#ECFDF5' }]}>
-                            <Icon name="map-pin" size={18} color="#10B981" />
-                        </View>
-                        <Text style={styles.sectionTitle}>Ubicación</Text>
-                    </View>
-
-                    <View style={styles.fieldContainer}>
-                        <Text style={styles.fieldLabel}>Ciudad *</Text>
-                        <InputSelectAdd
-                            value={formik.values.idCiudad}
-                            onChange={(id, item) => {
-                                formik.setFieldValue('idCiudad', id)
-                                formik.setFieldValue('NameCiudad', item.descripcion)
-                            }}
-                            name={'Ciudad'} path={'city'}
-                        />
-                        {formik.errors.idCiudad && formik.touched.idCiudad && (
-                            <Text style={styles.errorText}>{formik.errors.idCiudad}</Text>
-                        )}
-                    </View>
-                </View>
-
-                {/* CONTACTO */}
-                <View style={styles.sectionContainer}>
-                    <View style={styles.sectionHeader}>
-                        <View style={[styles.sectionIcon, { backgroundColor: '#FEE2E2' }]}>
-                            <Icon name="phone" size={18} color="#EF4444" />
-                        </View>
-                        <Text style={styles.sectionTitle}>Información de Contacto</Text>
-                    </View>
-
-                    <View style={styles.fieldContainer}>
-                        <Text style={styles.fieldLabel}>Teléfonos *</Text>
+                        <Text style={styles.fieldLabel}>Teléfonos (Opcional)</Text>
                         <View style={styles.telefonoContainer}>
                             <TextInput
                                 style={styles.telefonoInput}
@@ -223,6 +193,34 @@ export default function NewClient({ navigation }) {
                         )}
                     </View>
                 </View>
+
+                {/* UBICACIÓN */}
+                <View style={styles.sectionContainer}>
+                    <View style={styles.sectionHeader}>
+                        <View style={[styles.sectionIcon, { backgroundColor: '#ECFDF5' }]}>
+                            <Icon name="map-pin" size={18} color="#10B981" />
+                        </View>
+                        <Text style={styles.sectionTitle}>Ubicación (Opcional)</Text>
+                    </View>
+
+                    <View style={{ marginTop: 0 }}>
+                        {location?.address && (
+                            <Text style={{ marginTop: 6, color: '#64748b' }}>{location.address}</Text>
+                        )}
+                        <View style={{ position: 'relative' }}>
+                            <ClienteLocationPicker value={location} onChange={setLocation} height={320} />
+                            <TouchableOpacity
+                                onPress={() => setMapVisible(true)}
+                                style={{ position: 'absolute', top: 80, right: 5, backgroundColor: '#FFF', borderRadius: 22, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', elevation: 3 }}
+                                accessibilityRole="button"
+                            >
+                                <Icon name="maximize" size={18} color="#000" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+
+
             </ScrollView>
 
             <View style={styles.buttonContainer}>
@@ -235,12 +233,25 @@ export default function NewClient({ navigation }) {
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={styles.saveButton}
-                    onPress={formik.handleSubmit}
+                    onPress={() => {
+                        formik.handleSubmit()
+                    }}
                 >
                     <Icon name="save" size={16} color="#fff" style={{ marginRight: 8 }} />
                     <Text style={styles.buttonText}>Guardar</Text>
                 </TouchableOpacity>
             </View>
+            {/* Modal de mapa */}
+            <MapModalWrapper
+                visible={mapVisible}
+                value={location}
+                onChange={setLocation}
+                onClose={() => setMapVisible(false)}
+                onConfirm={(loc) => {
+                    setLocation(loc || null)
+                    setMapVisible(false)
+                }}
+            />
         </View>
     )
 }
@@ -433,3 +444,16 @@ const styles = StyleSheet.create({
         fontFamily: 'Cairo-Bold',
     },
 });
+
+// Modal de mapa a pantalla completa
+function MapModalWrapper({ visible, onClose, onConfirm, value, onChange }) {
+    return (
+        <FullScreenMapModal
+            visible={visible}
+            initialValue={value}
+            onChange={onChange}
+            onClose={onClose}
+            onConfirm={onConfirm}
+        />
+    )
+}

@@ -44,9 +44,9 @@ export default function CartSale({ lineaVenta, total, onClick, upQTY, downQTY, u
           alignItems: 'center'
         }}>
           <Icon name="user" size={14} color="#4A7AFF" style={{ marginRight: 4 }} />
-          <Text style={{ color: '#222', fontWeight: '600', fontSize: 14 }}> Cliente</Text>
+          <Text style={{ color: '#222', fontWeight: '600', fontSize: 14 }}> Cliente : {cliente.value ? cliente.value : 'N/A'}</Text>
         </Text>
-        <View style={{
+        {/* <View style={{
           borderWidth: 1,
           borderColor: '#E5EAF2',
           borderRadius: 12,
@@ -66,7 +66,7 @@ export default function CartSale({ lineaVenta, total, onClick, upQTY, downQTY, u
             }}
             {...cliente}
           />
-        </View>
+        </View> */}
       </View>
       <View style={{
         backgroundColor: '#eafbe7',

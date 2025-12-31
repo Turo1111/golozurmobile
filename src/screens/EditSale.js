@@ -114,10 +114,10 @@ export default function EditSale({ navigation, route }) {
     const [offline, setOffline] = useState(false)
 
     const { data: productLocalStorage } = useLocalStorage([], 'productStorage')
-
     const filteredArray = useFilteredArray(productLocalStorage.product, search.value);
 
     const getSaleDetails = () => {
+        console.log("id", id)
         dispatch(setLoading({
             message: `Cargando datos de la venta`
         }))
@@ -201,6 +201,7 @@ export default function EditSale({ navigation, route }) {
     }
 
     useEffect(() => {
+        console.log("id useEffect", id)
         getSaleDetails()
     }, [id])
 
@@ -524,9 +525,6 @@ export default function EditSale({ navigation, route }) {
             socket.disconnect();
         };
     }, [data])
-
-    console.log(isLoadingEditSale, 'isLoadingEditSale')
-    console.log(hasPermissionEditSale, 'hasPermissionEditSale')
 
     if (isLoadingEditSale || !hasPermissionEditSale) {
         return null
