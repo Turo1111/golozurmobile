@@ -20,6 +20,7 @@ const entities = [
     { id: "sale", name: "Ventas" },
     { id: "buy", name: "Compras" },
     { id: "client", name: "Clientes" },
+    {id: "stats", name: "Estadísticas" },
 ]
 
 const actions = [
@@ -259,13 +260,15 @@ export default function EditRole({ route, navigation }) {
                                         <TouchableOpacity
                                             style={[
                                                 styles.checkbox,
-                                                isPermissionChecked(entity.id, action.id) && styles.checkboxChecked
+                                                isPermissionChecked(entity.id, action.id) && styles.checkboxChecked,
+                                                entity.id === 'stats' && ( action.id === 'create' || action.id === 'delete' || action.id === 'update' ) ? styles.checkboxDisabled : null,
                                             ]}
                                             onPress={() => handlePermissionChange(
                                                 entity.id,
                                                 action.id,
                                                 !isPermissionChecked(entity.id, action.id)
                                             )}
+                                            disabled={entity.id === 'stats' && ( action.id === 'create' || action.id === 'delete' || action.id === 'update' ) ? true : false}
                                         >
                                             {isPermissionChecked(entity.id, action.id) && (
                                                 <Icon name="check" size={14} color="#fff" />
@@ -448,6 +451,10 @@ const styles = StyleSheet.create({
     checkboxChecked: {
         backgroundColor: '#2366CB',
         borderColor: '#2366CB',
+    },
+    checkboxDisabled: {
+        backgroundColor: '#6B7280',
+        borderColor: '#6B7280',
     },
     buttonContainer: {
         flexDirection: 'row',

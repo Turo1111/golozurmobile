@@ -18,6 +18,31 @@ export default function Login({ navigation }) {
     const { data: userLocalStorage, saveData, clearData } = useLocalStorage([], 'user')
     const [secureTextEntry, setSecureTextEntry] = useState(true);
 
+    useEffect(() => {
+        const postLogin = async () => {
+            try {
+                const response = await fetch('http://10.0.2.2:3002/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        nickname: 'pepe',
+                        password: 'Matias123'
+                    }),
+                });
+                const data = await response.json();
+                console.log('POST response:', response.status, data);
+            } catch (error) {
+                console.log('POST error:', {
+                    message: error.message,
+                });
+            }
+        };
+
+        postLogin();
+    }, []);
+
     const formik = useFormik({
         initialValues: {
             nickname: '',

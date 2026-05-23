@@ -1,17 +1,12 @@
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
-import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { clearUser, getUser } from '../redux/userSlice';
-import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
+import { clearLoading, setLoading } from '../redux/loadingSlice';
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import apiClient from '../utils/client';
-import Search from '../components/Search';
-import Button from '../components/Button';
 import { useInputValue } from '../hooks/useInputValue';
 import { io } from 'socket.io-client';
-import useInternetStatus from '../hooks/useInternetStatus';
-import { OfflineContext } from '../context.js/contextOffline';
 import useLocalStorage from '../hooks/useLocalStorage';
-import FeatherIcons from 'react-native-vector-icons/Feather'
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Buffer } from 'buffer';
@@ -23,10 +18,10 @@ import { TextInput, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import SaleItem from '../components/SaleItem';
 import Constants from 'expo-constants';
-import { subscribeToStorage } from '../hooks/useLocalStorage';
 import { useFocusEffect } from '@react-navigation/native';
 import { decode as base64Decode } from 'base-64'
 import ListModeSwitch from '../components/ListModeSwitch';
+import useSalesListController from '../hooks/useSalesListController';
 
 const decodeJWT = (token) => {
   try {
@@ -69,18 +64,27 @@ export default function Sale({ navigation }) {
 
   const user = useAppSelector(getUser)
   const { data: userStorage, clearData } = useLocalStorage([], 'user')
-  const loading = useAppSelector(getLoading)
   const dispatch = useAppDispatch();
-  const [data, setData] = useState([])
   const search = useInputValue('', '')
-  const [dataSearch, setDataSearch] = useState([])
-  const [error, setError] = useState(false)
-  const [query, setQuery] = useState({ skip: 0, limit: 25 })
   const [showUserDropdown, setShowUserDropdown] = useState(false)
   const [users, setUsers] = useState([])
   const [selectedUser, setSelectedUser] = useState(null)
-  const [limitSales, setLimitSales] = useState(0)
   const [showLocal, setShowLocal] = useState(false)
+  const {
+    query,
+    state: salesListState,
+    loadInitial,
+    setSearch,
+    setUser,
+    loadNextPage,
+    refresh,
+    consumeRealtime,
+    incrementPendingRealtime,
+  } = useSalesListController({ limit: 25 })
+  const searchDebounceRef = useRef(null)
+  const serverListRef = useRef(null)
+  const localListRef = useRef(null)
+  const [showScrollTopButton, setShowScrollTopButton] = useState(false)
 
   const { hasPermission: hasPermissionReadSale, isLoading: isLoadingReadSale } = usePermissionCheck('read_sale', () => { })
   const { hasPermission: hasPermissionCreateSale, isLoading: isLoadingCreateSale } = usePermissionCheck('create_sale', () => { })
@@ -88,7 +92,7 @@ export default function Sale({ navigation }) {
 
   const [offline, setOffline] = useState(false)
 
-  const { data: saleStorage, clearData: clearSaleStorage } = useLocalStorage([], 'saleStorage')
+  const { data: saleStorage } = useLocalStorage([], 'saleStorage')
 
   const [sales, setSales] = useState([]);
 
@@ -111,7 +115,7 @@ export default function Sale({ navigation }) {
     }, [reloadLocalSales])
   );
 
-  const logOut = async () => {
+  const logOut = useCallback(async () => {
     try {
       await clearData();
       await dispatch(clearUser());
@@ -119,7 +123,7 @@ export default function Sale({ navigation }) {
       console.error(error);
     }
     navigation.navigate('Login');
-  };
+  }, [clearData, dispatch, navigation]);
 
   const getUsers = async () => {
     try {
@@ -133,99 +137,137 @@ export default function Sale({ navigation }) {
     }
   }
 
-  const getSale = async (skip, limit, filterUser = null) => {
-    dispatch(setLoading({
-      message: `Actualizando ventas`
-    }))
-    try {
-      const response = await apiClient.post(`/sale/skip`, { skip, limit, filterUser },
-        {
-          headers: {
-            Authorization: `Bearer ${user.token || userStorage.token}`
-          },
-        });
-      if (filterUser !== null) {
-        setData(response.data.array)
-        setLimitSales(response.data.longitud)
-        return
-      } else {
-        setData((prevData) => {
-          if (prevData) {
-            if (prevData.length === 0) {
-              return response.data.array
-            }
-            const newData = response.data.array.filter((element) => {
-              return prevData.findIndex((item) => item._id === element._id) === -1;
-            });
-            return [...prevData, ...newData];
-          }
-          return []
-        })
-        setLimitSales(response.data.longitud)
-      }
-    } catch (e) {
-      setOffline(true)
-      if (e.response.data === 'USUARIO_NO_ACTIVO') {
-        logOut()
-      }
-      console.log("error getSale", e)
-      setError(true)
-    } finally {
-      dispatch(clearLoading());
-    }
-  }
+  const handleServerListError = useCallback((error, context) => {
+    setOffline(true)
 
-  const getSaleSearch = async (input) => {
-    console.log("getSaleSearch", input)
-    dispatch(setLoading({
-      message: `Actualizando ventas`
-    }))
-    try {
-      const response = await apiClient.post(`/sale/search`, { input });
-      setDataSearch(response.data);
-    } catch (e) {
-      setOffline(true)
-      if (e.response.data === 'USUARIO_NO_ACTIVO') {
-        logOut()
-      }
-      console.log("error sale search", e);
-      setError(true)
-    } finally {
-      dispatch(clearLoading())
+    if (error?.response?.data === 'USUARIO_NO_ACTIVO') {
+      logOut()
+      return
     }
-  }
+
+    console.log(context, error)
+  }, [logOut])
+
+  const refreshSalesList = useCallback(async () => {
+    if (showLocal) {
+      await reloadLocalSales()
+      return
+    }
+
+    try {
+      if (salesListState.pendingRealtimeCount > 0) {
+        await consumeRealtime()
+      } else {
+        await refresh()
+      }
+
+      setOffline(false)
+    } catch (error) {
+      handleServerListError(error, 'error refreshing sales')
+    }
+  }, [consumeRealtime, handleServerListError, refresh, reloadLocalSales, salesListState.pendingRealtimeCount, showLocal])
+
+  const scrollCurrentListToTop = useCallback((animated = true) => {
+    const currentListRef = showLocal ? localListRef.current : serverListRef.current
+
+    if (currentListRef?.scrollToOffset) {
+      currentListRef.scrollToOffset({ animated, offset: 0 })
+    }
+  }, [showLocal])
+
+  const applySearchToServer = useCallback(async (value) => {
+    if (showLocal) {
+      return
+    }
+
+    try {
+      await setSearch(value, {
+        userId: selectedUser?._id || null,
+        userLabel: selectedUser?.nickname || '',
+      })
+      setOffline(false)
+    } catch (error) {
+      handleServerListError(error, 'error setSearch sales')
+    }
+  }, [handleServerListError, selectedUser, setSearch, showLocal])
+
+  const submitSearchToServer = useCallback(async () => {
+    if (showLocal) {
+      return
+    }
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current)
+    }
+
+    await applySearchToServer(search.value)
+  }, [applySearchToServer, search.value, showLocal])
+
+  const applyUserToServer = useCallback(async (nextUser) => {
+    setSelectedUser(nextUser)
+    setShowUserDropdown(false)
+
+    if (showLocal) {
+      return
+    }
+
+    try {
+      await setUser(nextUser?._id || null, {
+        search: search.value,
+        userLabel: nextUser?.nickname || '',
+      })
+      setOffline(false)
+    } catch (error) {
+      handleServerListError(error, 'error setUser sales')
+    }
+  }, [handleServerListError, search.value, setUser, showLocal])
+
+  const handleLoadNextPage = useCallback(async () => {
+    if (showLocal) {
+      return
+    }
+
+    try {
+      await loadNextPage()
+      setOffline(false)
+    } catch (error) {
+      handleServerListError(error, 'error loadNextPage sales')
+    }
+  }, [handleServerListError, loadNextPage, showLocal])
 
   const clearUserFilter = () => {
-    setSelectedUser(null);
-    setQuery({ skip: 0, limit: 25 });
-
-    // Ejecutar búsqueda sin filtro de usuario
-    if (search.value !== '') {
-      getSaleSearch(search.value);
-    } else {
-      getSale(0, 25);
-    }
+    applyUserToServer(null);
   }
 
   useEffect(() => {
   }, [navigation.isFocused()])
 
   useEffect(() => {
-    let timeoutId;
+    if (showLocal) {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
 
-    if (search.value !== '' && !showLocal) {
-      console.log("search.value", search.value)
-      timeoutId = setTimeout(() => {
-        getSaleSearch(search.value);
-      }, 1000);
+      return undefined;
     }
 
+    const desiredSearch = search.value || ''
+    const desiredUserId = selectedUser?._id || null
+
+    if (desiredSearch === query.search && desiredUserId === query.userId) {
+      return undefined;
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      applySearchToServer(desiredSearch)
+    }, 350)
+
     return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [search.value, showLocal]);
+  }, [applySearchToServer, query.search, query.userId, search.value, selectedUser, showLocal]);
 
   useEffect(() => {
     if (user && !offline && !showLocal) {
@@ -235,30 +277,71 @@ export default function Sale({ navigation }) {
 
   useEffect(() => {
     if (!showLocal) {
-      getSale(query.skip, query.limit, selectedUser?._id)
+      loadInitial({
+        search: search.value,
+        userId: selectedUser?._id || null,
+        userLabel: selectedUser?.nickname || '',
+      })
+        .then(() => {
+          setOffline(false)
+        })
+        .catch((error) => {
+          handleServerListError(error, 'error loadInitial sales')
+        })
     }
-  }, [query, selectedUser, showLocal])
+  }, [showLocal])
 
   useEffect(() => {
     const socket = io(DB_HOST)
     socket.on(`sale`, async (socket) => {
-      const tokenDecoded = decodeJWT(userStorage.token)
-      if (!socket.data._id) {
-        await setData([])
-        await getSale(query.skip, query.limit, selectedUser?._id)
+      if (showLocal) {
         return
       }
-      setData((prevData) => {
-        if (tokenDecoded.id === socket.data.user || userStorage.nameRole === 'admin') {
-          return [socket.data, ...prevData]
+
+      let tokenDecoded = null
+      try {
+        if (userStorage?.token) {
+          tokenDecoded = decodeJWT(userStorage.token)
         }
-        return prevData
-      })
+      } catch (error) {
+        console.log('Error decoding sale socket token', error)
+      }
+
+      const isAdmin = userStorage?.nameRole === 'admin'
+      const isOwnSale = tokenDecoded?.id && socket?.data?.user && tokenDecoded.id === socket.data.user
+
+      if (!socket?.data?._id) {
+        incrementPendingRealtime()
+        return
+      }
+
+      if (isAdmin || isOwnSale) {
+        incrementPendingRealtime()
+      }
     })
     return () => {
       socket.disconnect();
     };
-  }, [data])
+  }, [incrementPendingRealtime, showLocal, userStorage])
+
+  useEffect(() => {
+    setShowScrollTopButton(false)
+  }, [showLocal])
+
+  const handleListScroll = useCallback((event) => {
+    const offsetY = event?.nativeEvent?.contentOffset?.y || 0
+    setShowScrollTopButton(offsetY > 280)
+  }, [])
+
+  const handlePressScrollTop = useCallback(() => {
+    setShowScrollTopButton(false)
+    scrollCurrentListToTop()
+  }, [scrollCurrentListToTop])
+
+  const handleRefreshEntryPoint = useCallback(async () => {
+    scrollCurrentListToTop()
+    await refreshSalesList()
+  }, [refreshSalesList, scrollCurrentListToTop])
 
   const downloadAndSharePDF = async (item) => {
     const fileName = `venta-${item.cliente}.pdf`;
@@ -299,7 +382,7 @@ export default function Sale({ navigation }) {
 
   const generatePdf = async (cliente) => {
     let details = undefined;
-    if (offline || showLocal) {
+    if (showLocal) {
       dispatch(setLoading({
         message: `Obteniendo venta`
       }))
@@ -487,15 +570,58 @@ export default function Sale({ navigation }) {
 
   const filteredLocalSales = useMemo(() => {
     const term = (search.value || '').toString().toLowerCase();
-    if (!term) return [...sales].reverse();
+    const source = saleStorage?.length ? saleStorage : sales
+
+    if (!term) return [...source].reverse();
     try {
-      return [...sales]
+      return [...source]
         .filter((s) => (s?.cliente || '').toString().toLowerCase().includes(term))
         .reverse();
     } catch {
-      return [...sales].reverse();
+      return [...source].reverse();
     }
-  }, [sales, search.value]);
+  }, [saleStorage, sales, search.value]);
+
+  const serverListEmptyComponent = useMemo(() => {
+    if (salesListState.status === 'initial-loading') {
+      return (
+        <View style={styles.listStateContainer}>
+          <ActivityIndicator size="small" color={HEADER_BLUE} />
+          <Text style={styles.listStateText}>Cargando ventas...</Text>
+        </View>
+      )
+    }
+
+    if (salesListState.status === 'error') {
+      return (
+        <View style={styles.listStateContainer}>
+          <Text style={styles.listErrorText}>No se pudo cargar el listado de ventas.</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRefreshEntryPoint}>
+            <Text style={styles.retryButtonText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+
+    return (
+      <View style={styles.listStateContainer}>
+        <Text style={styles.listStateText}>No hay ventas para mostrar.</Text>
+      </View>
+    )
+  }, [handleRefreshEntryPoint, salesListState.status]);
+
+  const serverListFooterComponent = useMemo(() => {
+    if (salesListState.status !== 'paginating') {
+      return <View style={{ height: 16 }} />
+    }
+
+    return (
+      <View style={styles.paginationFooter}>
+        <ActivityIndicator size="small" color={HEADER_BLUE} />
+        <Text style={styles.paginationFooterText}>Cargando más ventas...</Text>
+      </View>
+    )
+  }, [salesListState.status]);
 
   if (isLoadingReadSale || !hasPermissionReadSale) {
     return null
@@ -519,25 +645,21 @@ export default function Sale({ navigation }) {
               <View style={[styles.onlineDot, { backgroundColor: offline ? '#C7253E' : '#4CAF50' }]} />
               <Text style={{ color: '#fff', fontSize: 13, marginLeft: 4 }}>{offline ? 'Offline' : 'Online'}</Text>
             </View>
-            <TouchableOpacity onPress={() => {
-              if (showLocal) {
-                reloadLocalSales();
-              } else {
-                setQuery({ skip: 0, limit: 25 })
-                getSale(0, 25)
-              }
-            }} style={{ marginLeft: 8, padding: 4, backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 10 }}>
-              <Icon name="refresh-cw" size={18} color="#fff" />
-            </TouchableOpacity>
           </View>
         </View>
         {/* SEARCH BAR */}
         <View style={styles.searchBarContainer}>
-          <Icon name="search" size={18} color="#7F8487" style={{ marginLeft: 10 }} />
+          <TouchableOpacity onPress={submitSearchToServer} style={styles.searchSubmitButton}>
+            <Icon name="search" size={18} color="#7F8487" />
+          </TouchableOpacity>
           <TextInput
             style={styles.searchInput}
             placeholder={showLocal ? "Buscar ventas locales" : (selectedUser ? `Filtrando por: ${selectedUser.nickname}` : "Buscar ventas")}
             placeholderTextColor="#b0b0b0"
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            onSubmitEditing={submitSearchToServer}
             {...search}
           />
           {
@@ -571,7 +693,7 @@ export default function Sale({ navigation }) {
                     styles.userItem,
                     selectedUser?._id === item._id && styles.selectedUserItem
                   ]}
-                  onPress={() => { setSelectedUser(item); setShowUserDropdown(false) }}
+                  onPress={() => applyUserToServer(item)}
                 >
                   <View style={styles.userInfo}>
                     <View style={styles.userInitials}>
@@ -622,16 +744,34 @@ export default function Sale({ navigation }) {
         />
       </View>
       {
-        (!showLocal && !offline) ?
-          error ?
-            <View style={{ height: '100%', width: '100%', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} >
-              <Text style={{ fontSize: 22, fontFamily: 'Cairo-Regular', paddingHorizontal: 15, textAlign: 'center', marginBottom: 25 }} >"Ocurrio un error a traer los datos, compruebe su conexion si no es lento"</Text>
-            </View>
-            :
+        !showLocal ?
             <View style={{ flex: 1, paddingHorizontal: 15, paddingTop: 10 }}>
+              {salesListState.pendingRealtimeCount > 0 && (
+                <TouchableOpacity style={styles.realtimeBanner} onPress={handleRefreshEntryPoint}>
+                  <Icon name="refresh-cw" size={16} color={HEADER_BLUE} />
+                  <Text style={styles.realtimeBannerText}>
+                    Hay {salesListState.pendingRealtimeCount} venta{salesListState.pendingRealtimeCount === 1 ? '' : 's'} nueva{salesListState.pendingRealtimeCount === 1 ? '' : 's'}. Tocá para actualizar.
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {salesListState.status === 'refreshing' && (
+                <View style={styles.refreshingBanner}>
+                  <ActivityIndicator size="small" color={HEADER_BLUE} />
+                  <Text style={styles.refreshingBannerText}>Actualizando ventas...</Text>
+                </View>
+              )}
+
+              {salesListState.status === 'error' && salesListState.items.length > 0 && (
+                <View style={styles.inlineErrorBanner}>
+                  <Text style={styles.inlineErrorText}>No se pudo actualizar la lista. Mostrando datos previos.</Text>
+                </View>
+              )}
+
               <FlatList
+                ref={serverListRef}
                 style={{ flex: 1 }}
-                data={(search.value !== '') ? dataSearch : data}
+                data={salesListState.items}
                 renderItem={({ item }) => (
                   <SaleItem
                     item={item}
@@ -643,31 +783,20 @@ export default function Sale({ navigation }) {
                   />
                 )}
                 keyExtractor={(item) => item._id}
-                onEndReached={() => {
-                  // Solo cargar más datos si:
-                  // 1. No estamos ya cargando
-                  // 2. No hay búsqueda activa
-                  // 3. Aún hay más datos para cargar
-                  if (25 >= limitSales) {
-                    return
-                  }
-                  if (!loading.open && search.value === '' && query.skip + query.limit < limitSales) {
-                    dispatch(setLoading({
-                      message: `Cargando nuevas ventas`
-                    }))
-                    if (query.skip + query.limit >= limitSales) {
-                      const newValue = limitSales - query.limit
-                      setQuery({ skip: query.skip + newValue, limit: query.limit })
-                      return
-                    }
-                    setQuery({ skip: query.skip + query.limit, limit: query.limit })
-                  }
-                }}
+                onEndReached={handleLoadNextPage}
+                onEndReachedThreshold={0.5}
+                onScroll={handleListScroll}
+                scrollEventThrottle={16}
+                refreshing={salesListState.status === 'refreshing'}
+                onRefresh={refreshSalesList}
+                ListFooterComponent={serverListFooterComponent}
+                ListEmptyComponent={serverListEmptyComponent}
               />
             </View> :
           <View style={{ flex: 1, paddingHorizontal: 15, paddingTop: 10 }}>
-            <Text style={styles.offlineMessage}>{showLocal ? 'Listando ventas locales' : 'Estas en modo sin conexión'}</Text>
+            <Text style={styles.offlineMessage}>Listando ventas locales</Text>
             <FlatList
+              ref={localListRef}
               style={{ flex: 1 }}
               data={filteredLocalSales}
               renderItem={({ item }) => (
@@ -679,10 +808,18 @@ export default function Sale({ navigation }) {
                 />
               )}
               keyExtractor={(_, index) => `offline-sale-${index}`}
+              onScroll={handleListScroll}
+              scrollEventThrottle={16}
               ListEmptyComponent={<Text style={{ fontSize: 18, fontFamily: 'Cairo-Regular', paddingHorizontal: 15, textAlign: 'center', marginTop: '15%' }} >SIN VENTAS EN MODO OFFLINE</Text>}
             />
           </View>
       }
+
+      {showScrollTopButton && (
+        <TouchableOpacity style={styles.scrollTopButton} onPress={handlePressScrollTop}>
+          <Icon name="arrow-up" size={18} color="#fff" />
+        </TouchableOpacity>
+      )}
     </View>
   )
 }
@@ -732,6 +869,9 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.04,
     shadowRadius: 4,
+  },
+  searchSubmitButton: {
+    marginLeft: 10,
   },
   searchInput: {
     flex: 1,
@@ -869,5 +1009,108 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6b7280',
   },
+  realtimeBanner: {
+    backgroundColor: '#dbeafe',
+    borderColor: '#93c5fd',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  realtimeBannerText: {
+    color: HEADER_BLUE,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  refreshingBanner: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+    borderRadius: 10,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  refreshingBannerText: {
+    color: HEADER_BLUE,
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  inlineErrorBanner: {
+    backgroundColor: '#fef2f2',
+    borderRadius: 10,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  inlineErrorText: {
+    color: '#b91c1c',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  listStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 48,
+  },
+  listStateText: {
+    color: '#4b5563',
+    fontSize: 15,
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  listErrorText: {
+    color: '#b91c1c',
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: HEADER_BLUE,
+    borderRadius: 10,
+    marginTop: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  paginationFooter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 18,
+    paddingTop: 6,
+  },
+  paginationFooterText: {
+    color: '#4b5563',
+    fontSize: 13,
+    marginTop: 8,
+  },
+  scrollTopButton: {
+    position: 'absolute',
+    right: 18,
+    bottom: 24,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: HEADER_BLUE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 5,
+  },
 })
-

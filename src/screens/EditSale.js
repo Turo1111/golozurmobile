@@ -1,11 +1,10 @@
-import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import React, { useContext, useEffect, useState } from 'react'
+import { ActivityIndicator, FlatList, Pressable, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../redux/hook';
 import { getUser } from '../redux/userSlice';
-import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
+import { clearLoading, setLoading } from '../redux/loadingSlice';
 import { io } from 'socket.io-client';
 import { useInputValue } from '../hooks/useInputValue';
-import Search from '../components/Search';
 import FilterProduct from '../components/FilterProduct';
 import apiClient from '../utils/client';
 import MyBottomSheet from '../components/MyBottomSheet';
@@ -26,6 +25,7 @@ import * as Sharing from 'expo-sharing';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 import Icon from 'react-native-vector-icons/Feather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import useProductListController from '../hooks/useProductListController';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
@@ -84,14 +84,10 @@ export default function EditSale({ navigation, route }) {
 
     const user = useAppSelector(getUser)
     const { data: userStorage } = useLocalStorage([], 'user')
-    const loading = useAppSelector(getLoading)
     const dispatch = useAppDispatch();
-    const [data, setData] = useState([])
-    const [dataSearch, setDataSearch] = useState([])
-    const [query, setQuery] = useState({ skip: 0, limit: 15 })
-    const [activeCategorie, setActiveCategorie] = useState({ _id: 1, descripcion: 'Todas' })
-    const [activeBrand, setActiveBrand] = useState({ _id: 1, descripcion: 'Todas' })
-    const [activeProvider, setActiveProvider] = useState({ _id: 1, descripcion: 'Todas' })
+    const [activeCategorie, setActiveCategorie] = useState({ _id: null, descripcion: 'Todas' })
+    const [activeBrand, setActiveBrand] = useState({ _id: null, descripcion: 'Todas' })
+    const [activeProvider, setActiveProvider] = useState({ _id: null, descripcion: 'Todas' })
     const [openFilter, setOpenFilter] = useState(false)
     const [openBS, setOpenBS] = useState(false)
     const [lineaVenta, setLineaVenta] = useState([])
@@ -112,9 +108,33 @@ export default function EditSale({ navigation, route }) {
     const porcentaje = useInputValue('0', 'number')
 
     const [offline, setOffline] = useState(false)
+    const isConnected = useInternetStatus()
 
     const { data: productLocalStorage } = useLocalStorage([], 'productStorage')
-    const filteredArray = useFilteredArray(productLocalStorage.product, search.value);
+    const localProducts = useMemo(() => {
+        if (Array.isArray(productLocalStorage)) {
+            return productLocalStorage
+        }
+
+        if (Array.isArray(productLocalStorage?.product)) {
+            return productLocalStorage.product
+        }
+
+        return []
+    }, [productLocalStorage])
+    const filteredArray = useFilteredArray(localProducts, search.value);
+
+    const {
+        state,
+        applyQueryChanges,
+        loadNextPage,
+        refresh,
+        consumeRealtime,
+        incrementPendingRealtime,
+    } = useProductListController({
+        mode: 'server',
+        limit: 15,
+    })
 
     const getSaleDetails = () => {
         console.log("id", id)
@@ -152,85 +172,75 @@ export default function EditSale({ navigation, route }) {
             })
     }
 
-    const getProduct = (skip, limit) => {
-        apiClient.post(`/product/skip`, { skip, limit },
-            {
-                headers: {
-                    Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
-                },
-            })
-            .then(response => {
-                setData((prevData) => {
-                    if (prevData) {
-                        if (prevData.length === 0) {
-                            return response.data.array
-                        }
-                        const newData = response.data.array.filter((element) => {
-                            return prevData.findIndex((item) => item._id === element._id) === -1;
-                        });
-                        return [...prevData, ...newData];
-                    }
-                    return []
-                })
-                dispatch(clearLoading())
-            })
-            .catch(e => {
-                console.log('error', e);
-                dispatch(clearLoading())
-                dispatch(setAlert({
-                    message: `${e.response?.data || 'No se pudo traer los productos, estas en modo offline'}`,
-                    type: 'error'
-                }))
-                setOffline(true)
-            })
-    }
-
-    const getProductSearch = (input, categorie, brand, provider) => {
-        apiClient.post(`/product/search`, { input, categoria: categorie, marca: brand, proveedor: provider })
-            .then(response => {
-                setDataSearch(response.data)
-            })
-            .catch(e => {
-                console.log("error", e);
-                dispatch(setAlert({
-                    message: `${e.response?.data || 'No se pudo traer los productos, estas en modo offline'}`,
-                    type: 'error'
-                }))
-                setOffline(true)
-            })
-    }
-
     useEffect(() => {
         console.log("id useEffect", id)
         getSaleDetails()
     }, [id])
 
     useEffect(() => {
-        if (!offline) {
-            getProduct(query.skip, query.limit)
+        if (!isConnected) {
+            setOffline(true)
+            return
         }
-    }, [query, offline])
+
+        setOffline(false)
+    }, [isConnected])
 
     useEffect(() => {
-        if (search) {
-            getProductSearch(search.value, activeCategorie._id, activeBrand._id, activeProvider._id)
+        if (!offline) {
+            applyQueryChanges({
+                search: search.value,
+                categoryId: activeCategorie?._id ?? null,
+                brandId: activeBrand?._id ?? null,
+                providerId: activeProvider?._id ?? null,
+            }).catch((error) => {
+                console.log('error edit sale query', error)
+                setOffline(true)
+                dispatch(setAlert({
+                    message: `${error?.response?.data || 'No se pudo traer los productos, estas en modo offline'}`,
+                    type: 'error'
+                }))
+            })
         }
-    }, [search.value, activeBrand, activeCategorie, activeProvider])
+    }, [activeBrand?._id, activeCategorie?._id, activeProvider?._id, applyQueryChanges, dispatch, offline, search.value])
 
     useEffect(() => {
         const socket = io(DB_HOST)
-        socket.on(`/product`, (socket) => {
-            refreshProducts()
+        socket.on(`product`, () => {
+            incrementPendingRealtime()
         })
         return () => {
             socket.disconnect();
         };
-    }, [data])
+    }, [incrementPendingRealtime])
 
-    const refreshProducts = () => {
-        search.clearValue()
-        getProduct(query.skip, query.limit)
-    };
+    const refreshProducts = useCallback(() => {
+        if (offline) {
+            return
+        }
+
+        refresh().catch((error) => {
+            console.log('error refresh edit sale products', error)
+            dispatch(setAlert({
+                message: `${error?.response?.data || 'No se pudo actualizar la lista de productos'}`,
+                type: 'error'
+            }))
+        })
+    }, [dispatch, offline, refresh])
+
+    const applyPendingChanges = useCallback(() => {
+        if (offline) {
+            return
+        }
+
+        consumeRealtime().catch((error) => {
+            console.log('error consume edit sale realtime', error)
+            dispatch(setAlert({
+                message: `${error?.response?.data || 'No se pudo actualizar la lista con cambios pendientes'}`,
+                type: 'error'
+            }))
+        })
+    }, [consumeRealtime, dispatch, offline])
 
     useEffect(() => {
         const sumWithInitial = lineaVenta.reduce(
@@ -524,7 +534,55 @@ export default function EditSale({ navigation, route }) {
         return () => {
             socket.disconnect();
         };
-    }, [data])
+    }, [])
+
+    const renderListEmpty = () => {
+        if (offline) {
+            return (
+                <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>No hay productos guardados localmente</Text>
+                </View>
+            )
+        }
+
+        if (state.status === 'initial-loading') {
+            return (
+                <View style={styles.emptyState}>
+                    <ActivityIndicator size="small" color="#2563eb" />
+                    <Text style={styles.emptyStateText}>Cargando productos...</Text>
+                </View>
+            )
+        }
+
+        if (state.status === 'error') {
+            return (
+                <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>{state.error || 'No se pudo cargar la lista'}</Text>
+                    <TouchableOpacity style={styles.retryButton} onPress={refreshProducts}>
+                        <Text style={styles.retryButtonText}>Reintentar</Text>
+                    </TouchableOpacity>
+                </View>
+            )
+        }
+
+        return (
+            <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No hay productos para la consulta actual</Text>
+            </View>
+        )
+    }
+
+    const renderListFooter = () => {
+        if (offline || state.status !== 'paginating') {
+            return <View style={{ height: 20 }} />
+        }
+
+        return (
+            <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color="#2563eb" />
+            </View>
+        )
+    }
 
     if (isLoadingEditSale || !hasPermissionEditSale) {
         return null
@@ -562,25 +620,29 @@ export default function EditSale({ navigation, route }) {
                 </View>
             </View>
 
+            {
+                !offline && state.pendingRealtimeCount > 0 && (
+                    <View style={styles.realtimeBanner}>
+                        <Text style={styles.realtimeBannerText}>
+                            Hay {state.pendingRealtimeCount} cambio{state.pendingRealtimeCount > 1 ? 's' : ''} pendiente{state.pendingRealtimeCount > 1 ? 's' : ''} en productos.
+                        </Text>
+                        <TouchableOpacity onPress={applyPendingChanges} style={styles.realtimeBannerButton}>
+                            <Text style={styles.realtimeBannerButtonText}>Actualizar</Text>
+                        </TouchableOpacity>
+                    </View>
+                )
+            }
             <FlatList
                 style={{ height: '83%' }}
-                data={
-                    offline ? filteredArray :
-                        (search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ?
-                            dataSearch :
-                            data)
-                }
+                data={offline ? filteredArray : state.items}
                 renderItem={({ item }) => renderItem({ item, navigation, addSelectProduct })}
                 keyExtractor={(item) => item._id}
-                onEndReached={() => {
-                    if (!loading.open) {
-                        if (search) {
-                            if (search.value === '') {
-                                setQuery({ skip: query.skip + 15, limit: query.limit })
-                            }
-                        }
-                    }
-                }}
+                onEndReachedThreshold={0.5}
+                onEndReached={offline ? undefined : loadNextPage}
+                refreshing={!offline && state.status === 'refreshing'}
+                onRefresh={refreshProducts}
+                ListFooterComponent={renderListFooter}
+                ListEmptyComponent={renderListEmpty}
             />
             <FilterProduct open={openFilter} onClose={() => setOpenFilter(false)} activeBrand={activeBrand._id} activeCategorie={activeCategorie._id} activeProvider={activeProvider._id}
                 selectCategorie={(item) => setActiveCategorie(item)}
@@ -722,5 +784,63 @@ const styles = StyleSheet.create({
         width: 10,
         height: 10,
         borderRadius: 5,
+    },
+    realtimeBanner: {
+        backgroundColor: '#eff6ff',
+        borderColor: '#bfdbfe',
+        borderWidth: 1,
+        borderRadius: 12,
+        marginHorizontal: 12,
+        marginTop: 12,
+        marginBottom: 4,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+    },
+    realtimeBannerText: {
+        color: '#1d4ed8',
+        fontSize: 13,
+        flex: 1,
+    },
+    realtimeBannerButton: {
+        backgroundColor: '#2563eb',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+    },
+    realtimeBannerButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    emptyState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 32,
+        paddingHorizontal: 24,
+    },
+    emptyStateText: {
+        color: '#7F8487',
+        fontSize: 14,
+        textAlign: 'center',
+        marginTop: 8,
+    },
+    retryButton: {
+        marginTop: 12,
+        backgroundColor: '#2563eb',
+        borderRadius: 8,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    footerLoader: {
+        paddingVertical: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });

@@ -1,24 +1,20 @@
-import { FlatList, Pressable, StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native'
-import React, { useContext, useEffect, useState } from 'react'
-import apiClient from '../utils/client'
-import { clearUser, getUser } from '../redux/userSlice';
-import { useAppDispatch, useAppSelector } from '../redux/hook';
-import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
-import Search from '../components/Search';
-import Button from '../components/Button';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { clearUser } from '../redux/userSlice';
+import { useAppDispatch } from '../redux/hook';
 import { useInputValue } from '../hooks/useInputValue'
 import { io } from 'socket.io-client';
 import UpdatePrice from '../components/UpdatePrice';
 import FilterProduct from '../components/FilterProduct';
 import useLocalStorage from '../hooks/useLocalStorage';
 import useInternetStatus from '../hooks/useInternetStatus';
-import { OfflineContext } from '../context.js/contextOffline';
 import useFilteredArray from '../hooks/useFilteredArray';
 import PrintProduct from '../components/PrintProduct';
 import { setAlert } from '../redux/alertSlice';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 import Icon from 'react-native-vector-icons/Feather';
 import Constants from 'expo-constants';
+import useProductListController from '../hooks/useProductListController';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
@@ -72,37 +68,54 @@ const renderItem = ({ item, navigation, offline }) => {
 }
 
 const HEADER_BLUE = '#2563eb';
-const BUTTON_BG = '#2563eb';
-const BUTTON_TEXT = '#fff';
 
 export default function Product({ navigation }) {
 
-  const user = useAppSelector(getUser)
-  const { data: userStorage, clearData } = useLocalStorage([], 'user')
-  const loading = useAppSelector(getLoading)
+  const { clearData } = useLocalStorage([], 'user')
   const dispatch = useAppDispatch();
-  const [data, setData] = useState([])
-  const [dataSearch, setDataSearch] = useState([])
-  const [query, setQuery] = useState({ skip: 0, limit: 15 })
   const [openUpdate, setOpenUpdate] = useState(false)
-  const [activeCategorie, setActiveCategorie] = useState({ _id: 1, descripcion: 'Todas' })
-  const [activeBrand, setActiveBrand] = useState({ _id: 1, descripcion: 'Todas' })
-  const [activeProvider, setActiveProvider] = useState({ _id: 1, descripcion: 'Todas' })
+  const [activeCategorie, setActiveCategorie] = useState({ _id: null, descripcion: 'Todas' })
+  const [activeBrand, setActiveBrand] = useState({ _id: null, descripcion: 'Todas' })
+  const [activeProvider, setActiveProvider] = useState({ _id: null, descripcion: 'Todas' })
   const [openFilter, setOpenFilter] = useState(false)
   const isConnected = useInternetStatus();
   const { data: productLocalStorage } = useLocalStorage([], 'productStorage')
-  const fechaHoy = new Date()
   const [openPrint, setOpenPrint] = useState(false)
+  const focusReadyRef = useRef(false)
 
-  const { hasPermission: hasPermissionCreateProduct, isLoading: isLoadingCreateProduct } = usePermissionCheck('create_product', () => { })
-  const { hasPermission: hasPermissionUpdateProduct, isLoading: isLoadingUpdateProduct } = usePermissionCheck('update_product', () => { })
+  const {
+    state,
+    applyQueryChanges,
+    loadNextPage,
+    refresh,
+    consumeRealtime,
+    incrementPendingRealtime,
+  } = useProductListController({
+    mode: 'server',
+    limit: 15,
+  })
+
+  const { hasPermission: hasPermissionCreateProduct } = usePermissionCheck('create_product', () => { })
+  const { hasPermission: hasPermissionUpdateProduct } = usePermissionCheck('update_product', () => { })
   const { hasPermission: hasPermissionReadProduct, isLoading: isLoadingReadProduct } = usePermissionCheck('read_product', () => { })
 
   //const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
 
   const search = useInputValue('', '')
 
-  const filteredArray = useFilteredArray(productLocalStorage.product, search.value);
+  const localProducts = useMemo(() => {
+    if (Array.isArray(productLocalStorage)) {
+      return productLocalStorage
+    }
+
+    if (Array.isArray(productLocalStorage?.product)) {
+      return productLocalStorage.product
+    }
+
+    return []
+  }, [productLocalStorage])
+
+  const filteredArray = useFilteredArray(localProducts, search.value);
 
   /* const { offline } = useContext(OfflineContext) */
 
@@ -118,111 +131,130 @@ export default function Product({ navigation }) {
     navigation.navigate('Login');
   };
 
-  const getProduct = (skip, limit) => {
-    dispatch(setLoading({
-      message: `Actualizando productos`
-    }))
-    apiClient.post(`/product/skip`, { skip, limit },
-      {
-        headers: {
-          Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
-        },
-      })
-      .then(response => {
-        setData((prevData) => {
-          if (prevData) {
-            if (prevData.length === 0) {
-              return response.data.array
-            }
-            const newData = response.data.array.filter((element) => {
-              return prevData.findIndex((item) => item._id === element._id) === -1;
-            });
-            return [...prevData, ...newData];
-          }
-          return []
-        })
-        dispatch(clearLoading())
-      })
-      .catch(e => {
-        console.log("error getProduct", e); dispatch(clearLoading())
-        if (e.response.data === 'USUARIO_NO_ACTIVO') {
-          logOut()
-        }
-        setOffline(true)
-        dispatch(setAlert({
-          message: `${e.response?.data || 'No se pudo traer los productos, estas en modo offline'}`,
-          type: 'error'
-        }))
-      })
-  }
+  useEffect(() => {
+    if (!isConnected) {
+      setOffline(true)
+      return
+    }
 
-  const getProductSearch = (input, categorie, brand, provider) => {
-
-    apiClient.post(`/product/search`, { input, categoria: categorie, marca: brand, proveedor: provider },
-      {
-        headers: {
-          Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
-        },
-      }
-    )
-      .then(response => {
-        setDataSearch(response.data)
-      })
-      .catch(e => {
-        console.log("error", e); dispatch(clearLoading())
-        dispatch(setAlert({
-          message: `${e.response?.data || 'No se pudo traer los productos, estas en modo offline'}`,
-          type: 'error'
-        }))
-        setOffline(true)
-      })
-  }
+    setOffline(false)
+  }, [isConnected])
 
   useEffect(() => {
     if (!offline) {
-      getProduct(query.skip, query.limit)
-    }
-  }, [query, offline])
+      applyQueryChanges({
+        search: search.value,
+        categoryId: activeCategorie?._id ?? null,
+        brandId: activeBrand?._id ?? null,
+        providerId: activeProvider?._id ?? null,
+      }).catch((error) => {
+        console.log('error product query', error)
 
-  useEffect(() => {
-    if (search && !offline) {
-      getProductSearch(search.value, activeCategorie._id, activeBrand._id, activeProvider._id)
+        if (error?.response?.data === 'USUARIO_NO_ACTIVO') {
+          logOut()
+          return
+        }
+
+        setOffline(true)
+        dispatch(setAlert({
+          message: `${error?.response?.data || 'No se pudo traer los productos, estas en modo offline'}`,
+          type: 'error'
+        }))
+      })
     }
-  }, [search.value, activeBrand, activeCategorie, activeProvider])
+  }, [activeBrand?._id, activeCategorie?._id, activeProvider?._id, applyQueryChanges, dispatch, offline, search.value])
 
   useEffect(() => {
     const socket = io(DB_HOST)
-    socket.on(`product`, (socket) => {
-      refreshProducts()
-      setData((prevData) => {
-        const exist = prevData.find((elem) => elem._id === socket.data._id)
-        if (exist) {
-          return prevData.map((item) =>
-            item._id === socket.data._id ? socket.data : item
-          )
-        }
-        return [...prevData]
-      })
+    socket.on(`product`, () => {
+      incrementPendingRealtime()
     })
+
     return () => {
       socket.disconnect();
     };
-  }, [data])
+  }, [incrementPendingRealtime])
 
-  const refreshProducts = () => {
-    search.clearValue()
-    if (!offline) {
-      getProduct(query.skip, query.limit)
+  const refreshProducts = useCallback(() => {
+    if (offline) {
+      return
     }
-  };
+
+    refresh().catch((error) => {
+      console.log('error refresh products', error)
+      dispatch(setAlert({
+        message: `${error?.response?.data || 'No se pudo actualizar la lista de productos'}`,
+        type: 'error'
+      }))
+    })
+  }, [dispatch, offline, refresh])
+
+  const applyPendingChanges = useCallback(() => {
+    if (offline) {
+      return
+    }
+
+    consumeRealtime().catch((error) => {
+      console.log('error realtime refresh', error)
+      dispatch(setAlert({
+        message: `${error?.response?.data || 'No se pudo actualizar la lista con cambios pendientes'}`,
+        type: 'error'
+      }))
+    })
+  }, [consumeRealtime, dispatch, offline])
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
+      if (!focusReadyRef.current) {
+        focusReadyRef.current = true
+        return
+      }
+
       refreshProducts()
     });
 
     return unsubscribe
-  }, [navigation]);
+  }, [navigation, refreshProducts]);
+
+  const renderListEmpty = () => {
+    if (state.status === 'initial-loading') {
+      return (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="small" color="#2563eb" />
+          <Text style={styles.emptyStateText}>Cargando productos...</Text>
+        </View>
+      )
+    }
+
+    if (state.status === 'error') {
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>{state.error || 'No se pudo cargar la lista'}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={refreshProducts}>
+            <Text style={styles.retryButtonText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+
+    return (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyStateText}>No hay productos para la consulta actual</Text>
+      </View>
+    )
+  }
+
+  const renderListFooter = () => {
+    if (state.status !== 'paginating') {
+      return <View style={{ height: 20 }} />
+    }
+
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color="#2563eb" />
+      </View>
+    )
+  }
 
   if (isLoadingReadProduct || !hasPermissionReadProduct) {
     return null
@@ -294,30 +326,33 @@ export default function Product({ navigation }) {
       {
         !offline ?
           <View>
+            {
+              state.pendingRealtimeCount > 0 && (
+                <View style={styles.realtimeBanner}>
+                  <Text style={styles.realtimeBannerText}>
+                    Hay {state.pendingRealtimeCount} cambio{state.pendingRealtimeCount > 1 ? 's' : ''} pendiente{state.pendingRealtimeCount > 1 ? 's' : ''} en productos.
+                  </Text>
+                  <TouchableOpacity onPress={applyPendingChanges} style={styles.realtimeBannerButton}>
+                    <Text style={styles.realtimeBannerButtonText}>Actualizar</Text>
+                  </TouchableOpacity>
+                </View>
+              )
+            }
             <FlatList
               style={{ height: '70%' }}
-              data={search.value !== '' || activeBrand._id !== 1 || activeCategorie._id !== 1 || activeProvider._id !== 1 ?
-                dataSearch :
-                data
-              }
+              data={state.items}
               renderItem={({ item }) => renderItem({ item, navigation, offline })}
               keyExtractor={(item) => item._id}
-              onEndReached={() => {
-                if (!loading.open) {
-                  if (search) {
-                    if (search.value === '') {
-                      dispatch(setLoading({
-                        message: `Cargando nuevos productos`
-                      }))
-                      setQuery({ skip: query.skip + 15, limit: query.limit })
-                    }
-                  }
-                }
-              }}
+              onEndReachedThreshold={0.5}
+              onEndReached={loadNextPage}
+              refreshing={state.status === 'refreshing'}
+              onRefresh={refreshProducts}
+              ListFooterComponent={renderListFooter}
+              ListEmptyComponent={renderListEmpty}
             />
             <UpdatePrice open={openUpdate} onClose={() => setOpenUpdate(false)} updateQuery={refreshProducts} />
             <FilterProduct logout={logOut} open={openFilter} onClose={() => setOpenFilter(false)} activeBrand={activeBrand._id} activeCategorie={activeCategorie._id} activeProvider={activeProvider._id}
-              selectCategorie={(item) => setActiveCategorie(prevItem => prevItem._id === item._id ? { _id: 1, descripcion: 'Todas' } : item)}
+              selectCategorie={(item) => setActiveCategorie(item)}
               selectBrand={(item) => setActiveBrand(item)}
               selectProvider={(item) => setActiveProvider(item)}
             />
@@ -484,5 +519,60 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     textAlign: 'center',
     fontWeight: '500',
+  },
+  realtimeBanner: {
+    marginHorizontal: 10,
+    marginTop: 10,
+    marginBottom: 4,
+    backgroundColor: '#eaf2ff',
+    borderWidth: 1,
+    borderColor: '#bfd5ff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  realtimeBannerText: {
+    flex: 1,
+    color: '#1f3c88',
+    fontSize: 13,
+  },
+  realtimeBannerButton: {
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  realtimeBannerButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    marginTop: 10,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 12,
+    backgroundColor: '#2563eb',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  footerLoader: {
+    paddingVertical: 16,
   }
 });

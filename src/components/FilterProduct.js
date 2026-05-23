@@ -1,22 +1,26 @@
-import { FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React, { useEffect, useState } from 'react'
-import Button from './Button'
 import ModalContainer from './ModalContainer';
-import InputSelect from './InputSelect';
-import { useFormik } from 'formik';
-import { useAppSelector } from '../redux/hook';
-import { clearUser, getUser } from '../redux/userSlice';
 import apiClient from '../utils/client';
 import { useDispatch } from 'react-redux';
 import { clearLoading, setLoading } from '../redux/loadingSlice'
 import Icon from 'react-native-vector-icons/Feather'
 import Icon2 from 'react-native-vector-icons/AntDesign';
-import useLocalStorage from '../hooks/useLocalStorage';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 
 export default function FilterProduct({ open, onClose, activeBrand, activeCategorie, activeProvider, selectCategorie, selectBrand, selectProvider, logout }) {
 
-  const user = useAppSelector(getUser)
+  const allOption = { _id: null, descripcion: 'Todas' }
+  const getOptionKey = (scope, item) => `${scope}-${item?._id ?? 'all'}`
+
+  const isAllSelected = (value, itemId) => {
+    if (itemId === null) {
+      return value === null || value === undefined || Number(value) === 1
+    }
+
+    return String(value) === String(itemId)
+  }
+
   const dispatch = useDispatch()
   const [categorie, setCategorie] = useState([])
   const [brand, setBrand] = useState([])
@@ -24,7 +28,7 @@ export default function FilterProduct({ open, onClose, activeBrand, activeCatego
   const [showCategories, setShowCategories] = useState(true)
   const [showBrands, setShowBrands] = useState(false)
   const [showProviders, setShowProviders] = useState(false)
-  const { hasPermission: hasPermissionUpdateProduct, isLoading: isLoadingUpdateProduct } = usePermissionCheck('update_product', () => { })
+  const { hasPermission: hasPermissionUpdateProduct } = usePermissionCheck('update_product', () => { })
 
   const getCategorie = () => {
     dispatch(setLoading({
@@ -32,7 +36,7 @@ export default function FilterProduct({ open, onClose, activeBrand, activeCatego
     }))
     apiClient.get(`/categorie`)
       .then(function (response) {
-        setCategorie([{ _id: 1, descripcion: 'Todas' }, ...response.data]); dispatch(clearLoading())
+        setCategorie([allOption, ...response.data]); dispatch(clearLoading())
       })
       .catch(function (error) {
         console.log("get", error);; dispatch(clearLoading())
@@ -42,7 +46,7 @@ export default function FilterProduct({ open, onClose, activeBrand, activeCatego
   const getBrand = () => {
     apiClient.get(`/brand`)
       .then(function (response) {
-        setBrand([{ _id: 1, descripcion: 'Todas' }, ...response.data])
+        setBrand([allOption, ...response.data])
       })
       .catch(function (error) {
         console.log("get", error);
@@ -52,7 +56,7 @@ export default function FilterProduct({ open, onClose, activeBrand, activeCatego
   const getProvider = () => {
     apiClient.get(`/provider`)
       .then(function (response) {
-        setProvider([{ _id: 1, descripcion: 'Todas' }, ...response.data])
+        setProvider([allOption, ...response.data])
       })
       .catch(function (error) {
         console.log("get", error);
@@ -102,20 +106,20 @@ export default function FilterProduct({ open, onClose, activeBrand, activeCatego
                 <TouchableOpacity
                   style={[
                     styles.item,
-                    activeCategorie === item._id ? styles.activeItem : styles.inactiveItem
+                    isAllSelected(activeCategorie, item._id) ? styles.activeItem : styles.inactiveItem
                   ]}
                   onPress={() => selectCategorie(item)}
                 >
                   <Text style={[
                     styles.itemText,
-                    activeCategorie === item._id ? styles.activeText : styles.inactiveText
+                    isAllSelected(activeCategorie, item._id) ? styles.activeText : styles.inactiveText
                   ]}>
                     {item.descripcion}
                   </Text>
                 </TouchableOpacity>
               </View>
             }
-            keyExtractor={(item) => item._id.toString()}
+            keyExtractor={(item) => getOptionKey('categorie', item)}
             contentContainerStyle={{ paddingVertical: 4 }}
             style={{ height: 180 }}
           />
@@ -148,20 +152,20 @@ export default function FilterProduct({ open, onClose, activeBrand, activeCatego
                 <TouchableOpacity
                   style={[
                     styles.item,
-                    activeBrand === item._id ? styles.activeItem : styles.inactiveItem
+                    isAllSelected(activeBrand, item._id) ? styles.activeItem : styles.inactiveItem
                   ]}
                   onPress={() => selectBrand(item)}
                 >
                   <Text style={[
                     styles.itemText,
-                    activeBrand === item._id ? styles.activeText : styles.inactiveText
+                    isAllSelected(activeBrand, item._id) ? styles.activeText : styles.inactiveText
                   ]}>
                     {item.descripcion}
                   </Text>
                 </TouchableOpacity>
               </View>
             }
-            keyExtractor={(item) => item._id.toString()}
+            keyExtractor={(item) => getOptionKey('brand', item)}
             contentContainerStyle={{ paddingVertical: 4 }}
             style={{ height: 180 }}
           />
@@ -199,20 +203,20 @@ export default function FilterProduct({ open, onClose, activeBrand, activeCatego
                 <TouchableOpacity
                   style={[
                     styles.item,
-                    activeProvider === item._id ? styles.activeItem : styles.inactiveItem
+                    isAllSelected(activeProvider, item._id) ? styles.activeItem : styles.inactiveItem
                   ]}
                   onPress={() => selectProvider(item)}
                 >
                   <Text style={[
                     styles.itemText,
-                    activeProvider === item._id ? styles.activeText : styles.inactiveText
+                    isAllSelected(activeProvider, item._id) ? styles.activeText : styles.inactiveText
                   ]}>
                     {item.descripcion}
                   </Text>
                 </TouchableOpacity>
               </View>
             }
-            keyExtractor={(item) => item._id.toString()}
+            keyExtractor={(item) => getOptionKey('provider', item)}
             contentContainerStyle={{ paddingVertical: 4 }}
             style={{ height: 180 }}
           />

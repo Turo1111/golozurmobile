@@ -1,23 +1,15 @@
-import { FlatList, Pressable, StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native'
-import React, { useContext, useEffect, useState } from 'react'
-import apiClient from '../utils/client'
-import { clearUser, getUser } from '../redux/userSlice';
-import { useAppDispatch, useAppSelector } from '../redux/hook';
-import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
-import Search from '../components/Search';
-import Button from '../components/Button';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native'
+import React, { useCallback, useContext, useEffect, useRef } from 'react'
+import { clearUser } from '../redux/userSlice';
+import { useAppDispatch } from '../redux/hook';
 import { useInputValue } from '../hooks/useInputValue'
-import { io } from 'socket.io-client';
 import useLocalStorage from '../hooks/useLocalStorage';
 import useInternetStatus from '../hooks/useInternetStatus';
 import { OfflineContext } from '../context.js/contextOffline';
-import useFilteredArray from '../hooks/useFilteredArray';
 import { setAlert } from '../redux/alertSlice';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 import Icon from 'react-native-vector-icons/Feather';
-import Constants from 'expo-constants';
-
-const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
+import useAdminEntityListController from '../hooks/useAdminEntityListController';
 
 const renderUserItem = ({ item, navigation, isConnected }) => {
     // Determinar color basado en el rol
@@ -87,24 +79,25 @@ const EmptyListComponent = ({ message, icon }) => (
 );
 
 const HEADER_BLUE = '#2563eb';
-const BUTTON_BG = '#2563eb';
-const BUTTON_TEXT = '#fff';
-
 export default function Users({ navigation }) {
-    const user = useAppSelector(getUser)
-    const { data: userStorage, clearData } = useLocalStorage([], 'user')
-    const loading = useAppSelector(getLoading)
+    const { clearData } = useLocalStorage([], 'user')
     const dispatch = useAppDispatch();
-    const [data, setData] = useState([])
-    const [dataSearch, setDataSearch] = useState([])
-    const [query, setQuery] = useState({ skip: 0, limit: 15 })
     const isConnected = useInternetStatus();
     const search = useInputValue('', '')
     const { offline } = useContext(OfflineContext)
-    const [isLoading, setIsLoading] = useState(true)
+    const errorRef = useRef(null)
+    const {
+        query,
+        state,
+        loadInitial,
+        setSearch,
+        loadNextPage,
+        refresh,
+        retry,
+    } = useAdminEntityListController({ entity: 'user', limit: 15 })
 
     const { hasPermission: hasPermissionReadUser, isLoading: isLoadingReadUser } = usePermissionCheck('read_user', () => { })
-    const { hasPermission: hasPermissionCreateUser, isLoading: isLoadingCreateUser } = usePermissionCheck('create_user', () => { })
+    const { hasPermission: hasPermissionCreateUser } = usePermissionCheck('create_user', () => { })
 
     const logOut = async () => {
         try {
@@ -116,136 +109,137 @@ export default function Users({ navigation }) {
         navigation.navigate('Login');
     };
 
-    const getUsers = (skip, limit) => {
-        setIsLoading(true)
-        dispatch(setLoading({
-            message: `Actualizando usuarios`
-        }))
-        apiClient.post(`/user/skip`, { skip, limit },
-            {
-                headers: {
-                    Authorization: `Bearer ${user.token || userStorage.token}`
-                },
-            })
-            .then(response => {
-                setData((prevData) => {
-                    if (prevData) {
-                        if (prevData.length === 0) {
-                            return response.data.array
-                        }
-                        const newData = response.data.array.filter((element) => {
-                            return prevData.findIndex((item) => item._id === element._id) === -1;
-                        });
-                        return [...prevData, ...newData];
-                    }
-                    return []
-                })
-                setIsLoading(false)
-                dispatch(clearLoading())
-            })
-            .catch(e => {
-                console.log("error", e);
-                console.log('error user', e.response?.data)
-                if (e.response.data === 'USUARIO_NO_ACTIVO') {
-                    logOut()
-                }
-                dispatch(setAlert({
-                    message: `${e.response?.data || 'Ocurrio un error'}`,
-                    type: 'error'
-                }))
-                setIsLoading(false)
-                dispatch(clearLoading())
-            })
-    }
+    const runControllerAction = useCallback(async (action) => {
+        if (offline) {
+            return;
+        }
 
-    const getUsersSearch = (input) => {
-        setIsLoading(true)
-        apiClient.post(`/user/search`, { input },
-            {
-                headers: {
-                    Authorization: `Bearer ${user.token || userStorage.token}`
-                },
-            }
-        )
-            .then(response => {
-                setDataSearch(response.data)
-                setIsLoading(false)
-            })
-            .catch(e => {
-                console.log("error", e);
-                if (e.response.data === 'USUARIO_NO_ACTIVO') {
-                    logOut()
-                }
-                dispatch(setAlert({
-                    message: `${e.response?.data || 'Ocurrio un error'}`,
-                    type: 'error'
-                }))
-                setIsLoading(false)
-                dispatch(clearLoading())
-            })
-    }
+        try {
+            await action();
+        } catch (error) {
+            console.log('error user', error?.response?.data || error?.message || error);
+        }
+    }, [offline]);
+
+    const refreshUsers = useCallback(() => {
+        return runControllerAction(refresh);
+    }, [refresh, runControllerAction]);
 
     useEffect(() => {
-        if (!offline) {
-            getUsers(query.skip, query.limit)
+        if (offline) {
+            return;
         }
-    }, [query, offline, user.token, userStorage.token])
 
-    useEffect(() => {
-        if (search && !offline) {
-            getUsersSearch(search.value)
-        }
-    }, [search.value])
+        const normalizedSearch = String(search.value || '').trim()
 
-    const refreshUsers = () => {
-        search.clearValue()
-        if (!offline) {
-            getUsers(0, 15)
+        if (normalizedSearch === query.search) {
+            return;
         }
-    };
+
+        runControllerAction(() => setSearch(search.value));
+    }, [offline, query.search, runControllerAction, search.value, setSearch]);
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
+            if (offline) {
+                return;
+            }
+
+            if (state.status === 'idle') {
+                runControllerAction(loadInitial)
+                return;
+            }
+
             refreshUsers()
         });
 
         return unsubscribe
-    }, [navigation]);
+    }, [loadInitial, navigation, offline, refreshUsers, runControllerAction, state.status]);
+
+    useEffect(() => {
+        if (state.status !== 'error' || !state.error) {
+            errorRef.current = null
+            return;
+        }
+
+        if (errorRef.current === state.error) {
+            return;
+        }
+
+        errorRef.current = state.error
+
+        if (state.error === 'USUARIO_NO_ACTIVO') {
+            logOut()
+            return;
+        }
+
+        dispatch(setAlert({
+            message: `${state.error || 'Ocurrio un error'}`,
+            type: 'error'
+        }))
+    }, [dispatch, state.error, state.status])
 
     if (isLoadingReadUser || !hasPermissionReadUser) {
         return null
     }
 
+    const renderListEmpty = () => {
+        if (state.status === 'initial-loading') {
+            return (
+                <View style={styles.emptyState}>
+                    <ActivityIndicator size="small" color="#2563eb" />
+                    <Text style={styles.emptyStateText}>Cargando usuarios...</Text>
+                </View>
+            )
+        }
+
+        if (state.status === 'error') {
+            return (
+                <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>{state.error || 'No se pudo cargar la lista de usuarios'}</Text>
+                    <TouchableOpacity style={styles.retryButton} onPress={() => runControllerAction(retry)}>
+                        <Text style={styles.retryButtonText}>Reintentar</Text>
+                    </TouchableOpacity>
+                </View>
+            )
+        }
+
+        return (
+            <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No hay usuarios para la consulta actual</Text>
+            </View>
+        )
+    }
+
+    const renderListFooter = () => {
+        if (state.status !== 'paginating') {
+            return <View style={{ height: 20 }} />
+        }
+
+        return (
+            <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color="#2563eb" />
+            </View>
+        )
+    }
+
     const renderContent = () => {
         if (!offline) {
-            const displayData = search.value !== '' ? dataSearch : data;
-
             return (
                 <FlatList
                     style={styles.usersList}
-                    data={displayData}
+                    data={state.items}
                     renderItem={({ item }) => renderUserItem({ item, navigation, isConnected })}
                     keyExtractor={(item) => item._id.toString()}
                     contentContainerStyle={[
                         styles.listContentContainer,
-                        displayData.length === 0 && styles.emptyListContainer
+                        state.items.length === 0 && styles.emptyListContainer
                     ]}
-                    ListEmptyComponent={
-                        <EmptyListComponent
-                            message={isLoading ? "Cargando usuarios..." : "No hay usuarios para mostrar"}
-                            icon={isLoading ? "loader" : "users"}
-                        />
-                    }
-                    onEndReached={() => {
-                        if (!loading.open && !isLoading) {
-                            if (search.value === '') {
-                                dispatch(setLoading({
-                                    message: `Cargando nuevos usuarios`
-                                }))
-                                setQuery({ skip: query.skip + 15, limit: query.limit })
-                            }
-                        }
-                    }}
+                    ListEmptyComponent={renderListEmpty}
+                    ListFooterComponent={renderListFooter}
+                    refreshing={state.status === 'refreshing'}
+                    onRefresh={refreshUsers}
+                    onEndReached={() => runControllerAction(loadNextPage)}
                     onEndReachedThreshold={0.5}
                 />
             );
@@ -423,6 +417,35 @@ const styles = StyleSheet.create({
         color: '#9ca3af',
         marginTop: 12,
         textAlign: 'center',
+    },
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    emptyStateText: {
+        fontSize: 15,
+        color: '#7F8487',
+        marginTop: 10,
+        textAlign: 'center',
+        paddingHorizontal: 24,
+    },
+    retryButton: {
+        backgroundColor: '#2563eb',
+        borderRadius: 10,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        marginTop: 14,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+    },
+    footerLoader: {
+        paddingVertical: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     userCard: {
         backgroundColor: '#fff',

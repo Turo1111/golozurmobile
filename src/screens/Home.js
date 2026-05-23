@@ -34,6 +34,7 @@ export default function Home({ navigation }) {
   const { hasPermission: hasPermissionUser } = usePermissionCheck('read_user', () => { });
   const { hasPermission: hasPermissionRole } = usePermissionCheck('read_role', () => { });
   const { hasPermission: hasPermissionClient } = usePermissionCheck('read_client', () => { });
+  const { hasPermission: hasPermissionStats } = usePermissionCheck('read_stats', () => { });
 
   return (
     <ScrollView style={styles.container}>
@@ -120,6 +121,8 @@ export default function Home({ navigation }) {
         <View style={styles.modulesGrid}>
           {hasPermissionProduct && <ModuleCard icon="cube-outline" color="#f5a623" title="PRODUCTOS" subtitle="Gestionar inventario" onPress={() => navigation.navigate('Product')} />}
           {hasPermissionSale && <ModuleCard icon="cart-outline" color="#3b5998" title="VENTAS" subtitle="Procesar pedidos" onPress={() => navigation.navigate('Sale')} />}
+          {/* TODO: Restaurar el permiso read_sale_stats cuando esté listo el rollout backend-driven. */}
+          {hasPermissionStats && <ModuleCard icon="chart-bar" color="#2563eb" title="ESTADÍSTICAS" subtitle="Centro de métricas" onPress={() => navigation.navigate('Statistics')} />}
           {hasPermissionUser && <ModuleCard icon="account-group-outline" color="#6e8c47" title="USUARIOS" subtitle="Administrar equipo" onPress={() => navigation.navigate('Users')} />}
           {hasPermissionRole && <ModuleCard icon="lock-outline" color="#8e44ad" title="ROLES" subtitle="Permisos y accesos" onPress={() => navigation.navigate('Roles')} />}
           {hasPermissionClient && <ModuleCard icon="account-multiple-outline" color="#e74c3c" title="CLIENTES" subtitle="Administrar clientes" onPress={() => navigation.navigate('Client')} />}
@@ -409,4 +412,3 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
-

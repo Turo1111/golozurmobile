@@ -20,6 +20,7 @@ const entities = [
     { id: "sale", name: "Ventas" },
     { id: "buy", name: "Compras" },
     { id: "client", name: "Clientes" },
+    {id: "stats", name: "Estadísticas" },
 ]
 
 const actions = [

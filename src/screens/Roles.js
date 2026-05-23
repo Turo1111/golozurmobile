@@ -1,23 +1,15 @@
-import { FlatList, Pressable, StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native'
-import React, { useContext, useEffect, useState } from 'react'
-import apiClient from '../utils/client'
-import { clearUser, getUser } from '../redux/userSlice';
-import { useAppDispatch, useAppSelector } from '../redux/hook';
-import { clearLoading, getLoading, setLoading } from '../redux/loadingSlice';
-import Search from '../components/Search';
-import Button from '../components/Button';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View, TouchableOpacity, TextInput } from 'react-native'
+import React, { useCallback, useContext, useEffect, useRef } from 'react'
+import { clearUser } from '../redux/userSlice';
+import { useAppDispatch } from '../redux/hook';
 import { useInputValue } from '../hooks/useInputValue'
-import { io } from 'socket.io-client';
 import useLocalStorage from '../hooks/useLocalStorage';
 import useInternetStatus from '../hooks/useInternetStatus';
 import { OfflineContext } from '../context.js/contextOffline';
-import useFilteredArray from '../hooks/useFilteredArray';
 import { setAlert } from '../redux/alertSlice';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 import Icon from 'react-native-vector-icons/Feather';
-import Constants from 'expo-constants';
-
-const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
+import useAdminEntityListController from '../hooks/useAdminEntityListController';
 
 const renderRoleItem = ({ item, navigation, isConnected }) => {
     // Determinar si es el rol admin (no editable)
@@ -81,20 +73,24 @@ const EmptyListComponent = ({ message, icon }) => (
 const HEADER_BLUE = '#2563eb';
 
 export default function Roles({ navigation }) {
-    const user = useAppSelector(getUser)
-    const { data: userStorage, clearData } = useLocalStorage([], 'user')
-    const loading = useAppSelector(getLoading)
+    const { clearData } = useLocalStorage([], 'user')
     const dispatch = useAppDispatch();
-    const [data, setData] = useState([])
-    const [dataSearch, setDataSearch] = useState([])
-    const [query, setQuery] = useState({ skip: 0, limit: 15 })
     const isConnected = useInternetStatus();
     const search = useInputValue('', '')
     const { offline } = useContext(OfflineContext)
-    const [isLoading, setIsLoading] = useState(true)
+    const errorRef = useRef(null)
+    const {
+        query,
+        state,
+        loadInitial,
+        setSearch,
+        loadNextPage,
+        refresh,
+        retry,
+    } = useAdminEntityListController({ entity: 'role', limit: 15 })
 
     const { hasPermission: hasPermissionReadRole, isLoading: isLoadingReadRole } = usePermissionCheck('read_role', () => { })
-    const { hasPermission: hasPermissionCreateRole, isLoading: isLoadingCreateRole } = usePermissionCheck('create_role', () => { })
+    const { hasPermission: hasPermissionCreateRole } = usePermissionCheck('create_role', () => { })
 
     const logOut = async () => {
         try {
@@ -106,85 +102,17 @@ export default function Roles({ navigation }) {
         navigation.navigate('Login');
     };
 
-    const getRoles = (skip, limit) => {
-        setIsLoading(true)
-        dispatch(setLoading({
-            message: `Actualizando roles`
-        }))
-        apiClient.post(`/role/skip`, { skip, limit },
-            {
-                headers: {
-                    Authorization: `Bearer ${user.token || userStorage.token}`
-                },
-            })
-            .then(response => {
-                setData((prevData) => {
-                    if (prevData) {
-                        if (prevData.length === 0) {
-                            return response.data.array
-                        }
-                        const newData = response.data.array.filter((element) => {
-                            return prevData.findIndex((item) => item._id === element._id) === -1;
-                        });
-                        return [...prevData, ...newData];
-                    }
-                    return []
-                })
-                setIsLoading(false)
-                dispatch(clearLoading())
-            })
-            .catch(e => {
-                console.log("error", e);
-                if (e.response.data === 'USUARIO_NO_ACTIVO') {
-                    logOut()
-                }
-                dispatch(setAlert({
-                    message: `${e.response?.data || 'Ocurrio un error'}`,
-                    type: 'error'
-                }))
-                setIsLoading(false)
-                dispatch(clearLoading())
-            })
-    }
-
-    const getRolesSearch = (input) => {
-        setIsLoading(true)
-        apiClient.post(`/role/search`, { input },
-            {
-                headers: {
-                    Authorization: `Bearer ${user.token || userStorage.token}`
-                },
-            }
-        )
-            .then(response => {
-                setDataSearch(response.data)
-                setIsLoading(false)
-            })
-            .catch(e => {
-                console.log("error", e);
-                if (e.response.data === 'USUARIO_NO_ACTIVO') {
-                    logOut()
-                }
-                dispatch(setAlert({
-                    message: `${e.response?.data || 'Ocurrio un error'}`,
-                    type: 'error'
-                }))
-                setIsLoading(false)
-                dispatch(clearLoading())
-            })
-    }
-
-    useEffect(() => {
-        if (!offline) {
-            getRoles(query.skip, query.limit)
+    const runControllerAction = useCallback(async (action) => {
+        if (offline) {
+            return;
         }
-    }, [query, offline, user.token, userStorage.token])
 
-    useEffect(() => {
-        if (search && !offline) {
-            getRolesSearch(search.value)
+        try {
+            await action();
+        } catch (error) {
+            console.log('error role', error?.response?.data || error?.message || error);
         }
-    }, [search.value])
+    }, [offline]);
 
     /* useEffect(() => {
         const socket = io(DB_HOST)
@@ -204,55 +132,125 @@ export default function Roles({ navigation }) {
         };
     }, [data]) */
 
-    const refreshRoles = () => {
-        search.clearValue()
-        if (!offline) {
-            getRoles(0, 15)
+    const refreshRoles = useCallback(() => {
+        return runControllerAction(refresh);
+    }, [refresh, runControllerAction]);
+
+    useEffect(() => {
+        if (offline) {
+            return;
         }
-    };
+
+        const normalizedSearch = String(search.value || '').trim()
+
+        if (normalizedSearch === query.search) {
+            return;
+        }
+
+        runControllerAction(() => setSearch(search.value));
+    }, [offline, query.search, runControllerAction, search.value, setSearch]);
 
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
+            if (offline) {
+                return;
+            }
+
+            if (state.status === 'idle') {
+                runControllerAction(loadInitial)
+                return;
+            }
+
             refreshRoles()
         });
 
         return unsubscribe
-    }, [navigation]);
+    }, [loadInitial, navigation, offline, refreshRoles, runControllerAction, state.status]);
+
+    useEffect(() => {
+        if (state.status !== 'error' || !state.error) {
+            errorRef.current = null
+            return;
+        }
+
+        if (errorRef.current === state.error) {
+            return;
+        }
+
+        errorRef.current = state.error
+
+        if (state.error === 'USUARIO_NO_ACTIVO') {
+            logOut()
+            return;
+        }
+
+        dispatch(setAlert({
+            message: `${state.error || 'Ocurrio un error'}`,
+            type: 'error'
+        }))
+    }, [dispatch, state.error, state.status])
 
     if (isLoadingReadRole || !hasPermissionReadRole) {
         return null
     }
 
+    const renderListEmpty = () => {
+        if (state.status === 'initial-loading') {
+            return (
+                <View style={styles.emptyState}>
+                    <ActivityIndicator size="small" color="#2563eb" />
+                    <Text style={styles.emptyStateText}>Cargando roles...</Text>
+                </View>
+            )
+        }
+
+        if (state.status === 'error') {
+            return (
+                <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>{state.error || 'No se pudo cargar la lista de roles'}</Text>
+                    <TouchableOpacity style={styles.retryButton} onPress={() => runControllerAction(retry)}>
+                        <Text style={styles.retryButtonText}>Reintentar</Text>
+                    </TouchableOpacity>
+                </View>
+            )
+        }
+
+        return (
+            <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No hay roles para la consulta actual</Text>
+            </View>
+        )
+    }
+
+    const renderListFooter = () => {
+        if (state.status !== 'paginating') {
+            return <View style={{ height: 20 }} />
+        }
+
+        return (
+            <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color="#2563eb" />
+            </View>
+        )
+    }
+
     const renderContent = () => {
         if (!offline) {
-            const displayData = search.value !== '' ? dataSearch : data;
-
             return (
                 <FlatList
                     style={styles.rolesList}
-                    data={displayData}
+                    data={state.items}
                     renderItem={({ item }) => renderRoleItem({ item, navigation, isConnected })}
                     keyExtractor={(item) => item._id.toString()}
                     contentContainerStyle={[
                         styles.listContentContainer,
-                        displayData.length === 0 && styles.emptyListContainer
+                        state.items.length === 0 && styles.emptyListContainer
                     ]}
-                    ListEmptyComponent={
-                        <EmptyListComponent
-                            message={isLoading ? "Cargando roles..." : "No hay roles disponibles"}
-                            icon={isLoading ? "loader" : "shield"}
-                        />
-                    }
-                    onEndReached={() => {
-                        if (!loading.open && !isLoading) {
-                            if (search.value === '') {
-                                dispatch(setLoading({
-                                    message: `Cargando nuevos roles`
-                                }))
-                                setQuery({ skip: query.skip + 15, limit: query.limit })
-                            }
-                        }
-                    }}
+                    ListEmptyComponent={renderListEmpty}
+                    ListFooterComponent={renderListFooter}
+                    refreshing={state.status === 'refreshing'}
+                    onRefresh={refreshRoles}
+                    onEndReached={() => runControllerAction(loadNextPage)}
                     onEndReachedThreshold={0.5}
                 />
             );
@@ -437,6 +435,34 @@ const styles = StyleSheet.create({
         color: '#9ca3af',
         marginTop: 12,
         textAlign: 'center',
+    },
+    emptyState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 24,
+    },
+    emptyStateText: {
+        color: '#6b7280',
+        fontSize: 14,
+        marginTop: 10,
+        textAlign: 'center',
+    },
+    retryButton: {
+        backgroundColor: '#2563eb',
+        borderRadius: 8,
+        marginTop: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    footerLoader: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
     },
     roleCard: {
         backgroundColor: '#fff',

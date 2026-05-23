@@ -22,6 +22,11 @@ import NewClient from '../screens/NewClient';
 import EditClient from '../screens/EditClient';
 import ViewClient from '../screens/ViewClient';
 import InfoStorage from '../screens/InfoStorage';
+import ProductStats from '../screens/ProductStats';
+import SalesStats from '../screens/SalesStats';
+import StatsHome from '../screens/StatsHome';
+import UserStats from '../screens/UserStats';
+import UserStatsDetails from '../screens/UserStatsDetails';
 
 const Stack = createNativeStackNavigator();
 
@@ -49,6 +54,12 @@ export default function NavigationStack() {
       <Stack.Screen name='NewClient' component={NewClient} options={{ headerShown: false }} />
       <Stack.Screen name='EditClient' component={EditClient} options={{ headerShown: false }} />
       <Stack.Screen name='ViewClient' component={ViewClient} options={{ headerShown: false }} />
+      {/* TODO: Restaurar el guard de read_sale_stats cuando esté listo el rollout backend-driven. */}
+      <Stack.Screen name='Statistics' component={StatsHome} options={{ headerShown: false }} />
+      <Stack.Screen name='UserStats' component={UserStats} options={{ headerShown: false }} />
+      <Stack.Screen name='UserStatsDetails' component={UserStatsDetails} options={{ headerShown: false }} />
+      <Stack.Screen name='SalesStats' component={SalesStats} options={{ headerShown: false }} />
+      <Stack.Screen name='ProductStats' component={ProductStats} options={{ headerShown: false }} />
       <Stack.Screen name='InfoStorage' component={InfoStorage} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
