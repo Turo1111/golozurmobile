@@ -21,8 +21,6 @@ import { decode as base64Decode } from 'base-64'
 import ListModeSwitch from '../components/ListModeSwitch';
 import useSalesListController from '../hooks/useSalesListController';
 import { printSaleTicket } from '../utils/thermal/printSaleTicket';
-// TEMPORAL: trigger de impresión térmica para validación manual — quitar en batch 2 (tarea 8.1)
-import { printSampleTicket } from '../utils/thermal/devTrigger';
 
 const decodeJWT = (token) => {
   try {
@@ -544,13 +542,6 @@ export default function Sale({ navigation }) {
             <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('NewSale')}>
               <Icon name="plus" size={14} color="#fff" style={styles.headerButtonIcon} />
               <Text style={styles.headerButtonText}>Nueva Venta</Text>
-            </TouchableOpacity>
-          )}
-          {/* TEMPORAL (dev): imprime un ticket de muestra contra el golden de Fase 0 — quitar en batch 2 (tarea 8.1) */}
-          {__DEV__ && (
-            <TouchableOpacity style={styles.headerButton} onPress={printSampleTicket}>
-              <Icon name="printer" size={14} color="#fff" style={styles.headerButtonIcon} />
-              <Text style={styles.headerButtonText}>DEV térmica</Text>
             </TouchableOpacity>
           )}
         </View>
