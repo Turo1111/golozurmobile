@@ -68,10 +68,10 @@ export const twoColumns = (left = '', right = '') => {
   const { columns } = PAPER_58MM;
 
   if (rightText.length > columns - MIN_LEFT_WIDTH) {
-    // Ninguna línea puede superar el ancho del papel.
+    // Ninguna línea puede superar el ancho del papel; cada línea visual se rellena a 32.
     return concatBytes([
-      text(leftText.slice(0, columns)),
-      text(rightText.slice(0, columns)),
+      text(leftText.slice(0, columns).padEnd(columns)),
+      text(rightText.slice(0, columns).padEnd(columns)),
     ]);
   }
 

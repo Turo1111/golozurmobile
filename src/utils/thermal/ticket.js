@@ -25,13 +25,18 @@ export const formatDateTime = (value) => {
 };
 
 // Envuelve `{cantidad}x {descripción}` en la columna izquierda de 22 columnas.
-// Las continuaciones suman 3 espacios de indentación: 3 + hasta 19.
-export const wrapItemLines = (item) => {
+// `firstLineWidth` permite acortar solo la primera línea cuando la columna derecha
+// (precio) deja menos espacio útil; la cola continúa en las líneas normales de
+// continuación, así ningún carácter se pierde. Las continuaciones suman 3 espacios
+// de indentación: 3 + hasta 19.
+export const wrapItemLines = (item, firstLineWidth = ITEM_LEFT_WIDTH) => {
   const cantidad = item?.cantidad ?? 0;
   const descripcion = item?.descripcion ?? '';
   const title = `${cantidad}x ${descripcion}`.trimEnd();
-  const lines = [title.slice(0, ITEM_LEFT_WIDTH)];
-  const rest = title.slice(ITEM_LEFT_WIDTH);
+  const numericWidth = Number(firstLineWidth);
+  const width = Number.isFinite(numericWidth) ? Math.max(0, Math.trunc(numericWidth)) : ITEM_LEFT_WIDTH;
+  const lines = [title.slice(0, width)];
+  const rest = title.slice(width);
   const continuationWidth = ITEM_LEFT_WIDTH - CONTINUATION_INDENT;
   for (let index = 0; index < rest.length; index += continuationWidth) {
     lines.push(' '.repeat(CONTINUATION_INDENT) + rest.slice(index, index + continuationWidth));
@@ -58,9 +63,14 @@ export const buildSaleTicket = (ticketData) => {
   ];
 
   items.forEach((item) => {
-    wrapItemLines(item).forEach((line, index) => {
+    const right = formatMoney(item?.total);
+    // La primera línea de la descripción debe convivir con el precio: si el precio
+    // ocupa más de 10 columnas, la primera línea se acorta y la cola se derrama a
+    // las continuaciones (3 espacios dentro de 22). Ningún carácter se recorta.
+    const firstLineWidth = Math.min(ITEM_LEFT_WIDTH, COLUMNS - right.length);
+    wrapItemLines(item, firstLineWidth).forEach((line, index) => {
       if (index === 0) {
-        parts.push(twoColumns(line, formatMoney(item?.total)));
+        parts.push(twoColumns(line, right));
       } else {
         parts.push(text(line.padEnd(COLUMNS)));
       }
