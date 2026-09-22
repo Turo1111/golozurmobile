@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 
@@ -19,7 +19,7 @@ const SaleItem = ({
     hasPermissionUpdateSale = false,
     onPress,
     onDownloadPDF,
-    onGeneratePDF
+    onPrintThermal
 }) => {
 
     return (
@@ -86,26 +86,32 @@ const SaleItem = ({
 
                 {hasPermissionUpdateSale && (
                     isOffline ? (
-                        <TouchableOpacity
-                            style={styles.offlinePrintButton}
-                            onPress={onGeneratePDF}
-                        >
-                            <Icon name="printer" size={16} color="#fff" />
-                        </TouchableOpacity>
+                        // Venta local: solo térmica (Android); iOS no ofrece acción.
+                        Platform.OS === 'android' && (
+                            <TouchableOpacity
+                                style={styles.offlinePrintButton}
+                                onPress={onPrintThermal}
+                            >
+                                <Icon name="printer" size={16} color="#fff" />
+                            </TouchableOpacity>
+                        )
                     ) : (
                         <View style={styles.actionButtons}>
+                            {/* El A4 se conserva en ambas plataformas. */}
                             <TouchableOpacity
                                 style={styles.actionButton}
                                 onPress={onDownloadPDF}
                             >
                                 <Icon name="file-text" size={16} color="#f97316" />
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.actionButton}
-                                onPress={onGeneratePDF}
-                            >
-                                <Icon name="printer" size={16} color="#3b82f6" />
-                            </TouchableOpacity>
+                            {Platform.OS === 'android' && (
+                                <TouchableOpacity
+                                    style={styles.actionButton}
+                                    onPress={onPrintThermal}
+                                >
+                                    <Icon name="printer" size={16} color="#3b82f6" />
+                                </TouchableOpacity>
+                            )}
                         </View>
                     )
                 )}

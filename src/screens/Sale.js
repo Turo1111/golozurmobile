@@ -10,9 +10,7 @@ import useLocalStorage from '../hooks/useLocalStorage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { Buffer } from 'buffer';
-import { setAlert } from '../redux/alertSlice';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Print from 'expo-print';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 import { TextInput, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
@@ -22,6 +20,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { decode as base64Decode } from 'base-64'
 import ListModeSwitch from '../components/ListModeSwitch';
 import useSalesListController from '../hooks/useSalesListController';
+import { printSaleTicket } from '../utils/thermal/printSaleTicket';
 // TEMPORAL: trigger de impresión térmica para validación manual — quitar en batch 2 (tarea 8.1)
 import { printSampleTicket } from '../utils/thermal/devTrigger';
 
@@ -382,187 +381,6 @@ export default function Sale({ navigation }) {
     }
   };
 
-  const generatePdf = async (cliente) => {
-    let details = undefined;
-    if (showLocal) {
-      dispatch(setLoading({
-        message: `Obteniendo venta`
-      }))
-      try {
-        const jsonValue = await AsyncStorage.getItem('saleStorage');
-        if (jsonValue !== null) {
-          const value = JSON.parse(jsonValue);
-          details = await value.find(elem => elem.cliente === cliente);
-        }
-        dispatch(clearLoading());
-      } catch (e) {
-        dispatch(setAlert({
-          message: 'Hubo un error al obtener la venta 1',
-          type: 'error'
-        }));
-        dispatch(clearLoading());
-      }
-    } else {
-      dispatch(setLoading({
-        message: `Obteniendo venta`
-      }))
-      await apiClient.get(`/sale/${cliente}`, {
-        headers: {
-          Authorization: `Bearer ${user.token || userStorage.token}`
-        },
-      })
-        .then(r => {
-          details = {
-            itemsSale: r.data.itemsSale,
-            cliente: r.data.r.cliente,
-            total: r.data.r.total,
-            createdAt: r.data.r.createdAt
-          };
-          dispatch(clearLoading());
-        })
-        .catch(e => {
-          dispatch(setAlert({
-            message: 'Hubo un error al obtener la venta 1',
-            type: 'error'
-          }));
-          dispatch(clearLoading());
-        });
-    }
-
-    if (!details) {
-      dispatch(setAlert({
-        message: 'Hubo un error al obtener la venta 2',
-        type: 'error'
-      }));
-      return;
-    }
-
-    const chunkArray = (array, size) => {
-      const result = [];
-      for (let i = 0; i < array.length; i += size) {
-        result.push(array.slice(i, i + size));
-      }
-      return result;
-    };
-
-    const itemsChunks = chunkArray(details.itemsSale, 15);
-
-    const generateHtmlContent = (items, chunkIndex, totalChunks) => {
-
-      const itemsText = items.map(item =>
-        `
-          <div class="it">
-            <p class="it">${(item.descripcion).toUpperCase()}</p>
-            <div class="itemList">
-              <div class="flex">
-                <p class="it">${item.cantidad}x</p>
-                <p class="it">$${((item.total / item.cantidad) || item.precio || item.precioUnitario || 'error').toString().toLocaleString('es-ES')}</p>
-              </div>
-              <p class="it">$${(item.total).toString().toLocaleString('es-ES')}</p>
-            </div>
-          </div>
-        `).join('');
-
-      return `
-          <html>
-            <head>
-              <style>
-                body {
-                  font-family: 'Courier New', Courier, monospace;
-                  font-size: 15px;
-                  margin: 0;
-                  padding: 0;
-                }
-                .header {
-                  margin-left: 5px;
-                  padding: 0;
-                }
-                .header h2 {
-                  text-align: center;
-                  padding: 0;
-                  margin-bottom: 5px;
-                  font-size: 15px;
-                }
-                .header p {
-                  padding: 0;
-                  margin: 0;
-                  margin-bottom: 2px;
-                  font-size: 15px;
-                }
-                .details {
-                  margin: 0;
-                  font-size: 15px;
-                  padding: 0;
-                }
-                .flex {
-                  display: flex;
-                  margin: 0;
-                  padding: 0;
-                }
-                .itemList {
-                  display: flex;
-                  padding: 0px 3px;
-                  margin: 0;
-                  padding: 0;
-                  justify-content: space-between;
-                }
-                .it {
-                  margin: 0;
-                  padding: 0;
-                }
-                .total {
-                  margin: 0;
-                  font-weight: bold;
-                  text-align: right;
-                  font-size: 18px;
-                  padding: 0;
-                }
-              </style>
-            </head>
-            <body>
-              <div class="header">
-                <h2>GOLOZUR</h2>
-                <p>Fecha: ${details.createdAt.split("T")[0]}</p>
-                <p>Cliente: ${details.cliente}</p>
-                <p>*NO VALIDO COMO FACTURA</p>
-                ${totalChunks > 1 ? `<p>Ticket ${chunkIndex + 1} de ${totalChunks}</p>` : ''}
-              </div>
-              <hr/>
-              <div class="details">
-                ${itemsText}
-              </div>
-              <hr/>
-              ${chunkIndex === totalChunks - 1 ? `
-                <div class="total">
-                  <p>Total Neto $ ${(details.total).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                </div>
-              ` : ''}
-            </body>
-          </html>
-        `;
-    };
-
-    try {
-      for (let i = 0; i < itemsChunks.length; i++) {
-        const htmlContent = generateHtmlContent(itemsChunks[i], i, itemsChunks.length);
-        const { uri } = await Print.printToFileAsync({
-          html: htmlContent,
-          width: 200,  // 57 mm en puntos
-          height: 192.85
-        });
-
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(uri);
-        } else {
-          console.log('Compartir no disponible en este dispositivo');
-        }
-      }
-    } catch (error) {
-      console.error('Error generando el PDF:', error);
-    }
-  };
-
   const handleSalePress = (item) => {
     navigation.navigate('DetailsSale', {
       id: item._id,
@@ -788,7 +606,7 @@ export default function Sale({ navigation }) {
                     hasPermissionUpdateSale={hasPermissionUpdateSale}
                     onPress={() => handleSalePress(item)}
                     onDownloadPDF={() => downloadAndSharePDF(item)}
-                    onGeneratePDF={() => generatePdf(item._id)}
+                    onPrintThermal={() => printSaleTicket({ mode: 'online', saleId: item._id })}
                   />
                 )}
                 keyExtractor={(item) => item._id}
@@ -813,7 +631,7 @@ export default function Sale({ navigation }) {
                   item={item}
                   isOffline={true}
                   hasPermissionUpdateSale={hasPermissionUpdateSale}
-                  onGeneratePDF={() => generatePdf(item.cliente)}
+                  onPrintThermal={() => printSaleTicket({ mode: 'provided', provided: item })}
                 />
               )}
               keyExtractor={(_, index) => `offline-sale-${index}`}
