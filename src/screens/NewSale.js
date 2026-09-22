@@ -19,13 +19,11 @@ import useFilteredArray from '../hooks/useFilteredArray';
 import AddProduct from '../components/AddProduct';
 import AlertPostSale from '../components/AlertPostSale';
 import Constants from 'expo-constants';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 import Icon from 'react-native-vector-icons/Feather';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import SelectClient from '../components/SelectClient';
 import useProductListController from '../hooks/useProductListController';
+import { printSaleTicket } from '../utils/thermal/printSaleTicket';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
@@ -96,6 +94,7 @@ export default function NewSale({ navigation }) {
   const [selectProduct, setSelectProduct] = useState(undefined)
   const [openAddProduct, setOpenAddProduct] = useState(false)
   const [openAlertPost, setOpenAlertPost] = useState(false)
+  const [printContext, setPrintContext] = useState(null)
   const today = new Date()
   //const { data: offlineStorage, saveData: setOfflineStorage } = useLocalStorage(true, 'offlineStorage')
   const { createSale } = useContext(OfflineContext)
@@ -247,11 +246,20 @@ export default function NewSale({ navigation }) {
     setOpenAddProduct(true)
   }
 
+  // Instantánea de la venta creada: se usa como `provided` cuando no hay `_id` del servidor.
+  const buildInMemorySale = () => ({
+    createdAt: new Date().toISOString(),
+    itemsSale: lineaVenta,
+    cliente: cliente.value,
+    total: total,
+    estado: 'Entregado',
+    porcentaje: porcentaje.value,
+  })
+
   const postOffline = async () => {
-    let today = new Date()
-    let formatToday = today.toISOString()
-    createSale({ createdAt: formatToday, itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value })
-    setOpenAlertPost(true)
+    const saleData = buildInMemorySale()
+    createSale(saleData)
+    return saleData
   }
 
   const postSale = async () => {
@@ -269,202 +277,31 @@ export default function NewSale({ navigation }) {
       }))
       return
     }
-    /* if (offline) {
-      postOffline()
-      return
-    } */
     dispatch(setLoading({
       message: `Guardando productos`
     }))
-    apiClient.post('/sale', { itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value, idCliente: idCliente }, {
-      headers: {
-        Authorization: `Bearer ${user.token || userStorage.token}`
-      }
-    })
-      .then((r) => {
-
-        dispatch(clearLoading());
-      })
-      .catch(async (e) => {
-        postOffline()
-        dispatch(clearLoading());
-      })
-    setOpenAlertPost(true)
-  }
-
-  const generatePdf = async (cliente) => {
-    let details = undefined;
-    if (offline) {
-      dispatch(setLoading({
-        message: `Obteniendo venta`
-      }))
-      try {
-        const jsonValue = await AsyncStorage.getItem('saleStorage');
-        if (jsonValue !== null) {
-          const value = JSON.parse(jsonValue);
-          details = await value.find(elem => elem.cliente === cliente);
-        }
-        dispatch(clearLoading());
-      } catch (e) {
-        dispatch(clearLoading());
-        dispatch(setAlert({
-          message: 'Hubo un error al obtener la venta 1',
-          type: 'error'
-        }));
-      }
-    } else {
-      await apiClient.get(`/sale/${cliente}`, {
+    try {
+      const response = await apiClient.post('/sale', { itemsSale: lineaVenta, cliente: cliente.value, total: total, estado: 'Entregado', porcentaje: porcentaje.value, idCliente: idCliente }, {
         headers: {
           Authorization: `Bearer ${user.token || userStorage.token}`
-        },
-      })
-        .then(r => {
-          details = {
-            itemsSale: r.data.itemsSale,
-            cliente: r.data.r.cliente,
-            total: r.data.r.total,
-            createdAt: r.data.r.createdAt
-          };
-        })
-        .catch(e => {
-          dispatch(setAlert({
-            message: `${e.response?.data || 'Ocurrio un error'}`,
-            type: 'error'
-          }));
-        });
-    }
-
-    if (!details) {
-      dispatch(setAlert({
-        message: `${e.response?.data || 'Ocurrio un error'}`,
-        type: 'error'
-      }));
-      return;
-    }
-
-    const chunkArray = (array, size) => {
-      const result = [];
-      for (let i = 0; i < array.length; i += size) {
-        result.push(array.slice(i, i + size));
-      }
-      return result;
-    };
-
-    const itemsChunks = chunkArray(details.itemsSale, 15);
-
-    const generateHtmlContent = (items, chunkIndex, totalChunks) => {
-      const itemsText = items.map(item => `
-        <div class="it">
-          <p class="it">${(item.descripcion).toUpperCase()}</p>
-          <div class="itemList">
-            <div class="flex">
-              <p class="it">${item.cantidad}x</p>
-              <p class="it">$${(item.precio || item.precioUnitario).toString().toLocaleString('es-ES')}</p>
-            </div>
-            <p class="it">$${(item.total).toString().toLocaleString('es-ES')}</p>
-          </div>
-        </div>
-      `).join('');
-
-      return `
-        <html>
-          <head>
-            <style>
-              body {
-                font-family: 'Courier New', Courier, monospace;
-                font-size: 15px;
-                margin: 0;
-                padding: 0;
-              }
-              .header {
-                margin-left: 5px;
-                padding: 0;
-              }
-              .header h2 {
-                text-align: center;
-                padding: 0;
-                margin-bottom: 5px;
-                font-size: 15px;
-              }
-              .header p {
-                padding: 0;
-                margin: 0;
-                margin-bottom: 2px;
-                font-size: 15px;
-              }
-              .details {
-                margin: 0;
-                font-size: 15px;
-                padding: 0;
-              }
-              .flex {
-                display: flex;
-                margin: 0;
-                padding: 0;
-              }
-              .itemList {
-                display: flex;
-                padding: 0px 3px;
-                margin: 0;
-                padding: 0;
-                justify-content: space-between;
-              }
-              .it {
-                margin: 0;
-                padding: 0;
-              }
-              .total {
-                margin: 0;
-                font-weight: bold;
-                text-align: right;
-                font-size: 18px;
-                padding: 0;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h2>GOLOZUR</h2>
-              <p>Fecha: ${details.createdAt.split("T")[0]}</p>
-              <p>Cliente: ${details.cliente}</p>
-              <p>*NO VALIDO COMO FACTURA</p>
-              ${totalChunks > 1 ? `<p>Ticket ${chunkIndex + 1} de ${totalChunks}</p>` : ''}
-            </div>
-            <hr/>
-            <div class="details">
-              ${itemsText}
-            </div>
-            <hr/>
-            ${chunkIndex === totalChunks - 1 ? `
-              <div class="total">
-                <p>Total Neto $ ${(details.total).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </div>
-            ` : ''}
-          </body>
-        </html>
-      `;
-    };
-
-    try {
-      for (let i = 0; i < itemsChunks.length; i++) {
-        const htmlContent = generateHtmlContent(itemsChunks[i], i, itemsChunks.length);
-        const { uri } = await Print.printToFileAsync({
-          html: htmlContent,
-          width: 200,  // 57 mm en puntos
-          height: 192.85
-        });
-
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(uri);
-        } else {
-          console.log('Compartir no disponible en este dispositivo');
         }
-      }
-    } catch (error) {
-      console.error('Error generando el PDF:', error);
+      })
+      const saleId = response?.data?._id
+      setPrintContext(saleId ? { mode: 'online', saleId } : { mode: 'provided', provided: buildInMemorySale() })
+    } catch (e) {
+      // Sin servidor: la venta queda en storage local y se imprime desde memoria.
+      const offlineSale = await postOffline()
+      setPrintContext({ mode: 'provided', provided: offlineSale })
+    } finally {
+      dispatch(clearLoading())
+      setOpenAlertPost(true)
     }
-  };
+  }
+
+  const printCreatedSale = () => {
+    if (!printContext) return
+    return printSaleTicket(printContext)
+  }
 
   useEffect(() => {
     const socket = io(DB_HOST)
@@ -596,7 +433,7 @@ export default function NewSale({ navigation }) {
       }
       {
         openAlertPost &&
-        <AlertPostSale open={openAlertPost} onClose={() => navigation.navigate('Sale')} post={() => navigation.navigate('Sale')} print={() => generatePdf(cliente.value)} />
+        <AlertPostSale open={openAlertPost} onClose={() => navigation.navigate('Sale')} post={() => navigation.navigate('Sale')} print={printCreatedSale} />
       }
       <ResumeBottomSheet onPress={() => setOpenBS(true)} totalCart={total} longCart={lineaVenta.length} />
       <MyBottomSheet open={openBS} onClose={() => setOpenBS(false)} fullScreen={true} >
