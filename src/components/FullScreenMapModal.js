@@ -2,17 +2,26 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Alert, Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, SafeAreaView, TextInput } from 'react-native'
 import Icon from 'react-native-vector-icons/Feather'
 import ClienteLocationPicker from './ClienteLocationPicker'
+import { reverseGeocode } from '../utils/location/reverseGeocode'
 
 const SEARCH_FAILURE_MESSAGE = 'No se pudo buscar la dirección. Verifique la conexión e intente nuevamente.'
+const REVERSE_FAILURE_MESSAGE = 'No se pudo obtener la dirección. Verifique la conexión e intente nuevamente.'
 
 export default function FullScreenMapModal({ visible, value, onChange, onClose, onConfirm, readOnly, initialValue, allowDevicePrefill = false }) {
     const [searchQuery, setSearchQuery] = useState('')
     const [searchLoading, setSearchLoading] = useState(false)
     const [searchResults, setSearchResults] = useState([])
     const typingTimeout = useRef(null)
+    const reverseReqIdRef = useRef(0)
+    const mountedRef = useRef(true)
     // La selección se toma de las props en el primer render: los consumidores montan el
     // modal al abrirlo, así el picker recibe la ubicación sin depender del timing de efectos.
     const [selected, setSelected] = useState(initialValue || value || null)
+
+    useEffect(() => {
+        mountedRef.current = true
+        return () => { mountedRef.current = false }
+    }, [])
 
     const searchPlaces = async () => {
         const q = searchQuery?.trim()
@@ -52,15 +61,33 @@ export default function FullScreenMapModal({ visible, value, onChange, onClose, 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery, visible])
 
-    const handleSelectSearchResult = (item) => {
-        const lat = parseFloat(item.lat)
-        const lng = parseFloat(item.lon)
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
-        const address = item.display_name
-        const loc = { lat, lng, address }
+    const commitSelection = (loc) => {
+        // Invalidar geocodificaciones en curso para que no sobrescriban esta selección.
+        reverseReqIdRef.current += 1
         setSelected(loc)
         onChange && onChange(loc)
         setSearchResults([])
+    }
+
+    const handleSelectSearchResult = async (item) => {
+        const lat = parseFloat(item.lat)
+        const lng = parseFloat(item.lon)
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+        const address = typeof item.display_name === 'string' ? item.display_name.trim() : ''
+        if (address) {
+            commitSelection({ lat, lng, address })
+            return
+        }
+        // Sin display_name: resolver la dirección con el geocoder acotado antes de comitear.
+        const myId = ++reverseReqIdRef.current
+        const geo = await reverseGeocode(lat, lng)
+        if (!mountedRef.current) return
+        if (myId !== reverseReqIdRef.current) return
+        if (!geo.ok || !geo.address) {
+            Alert.alert('Ubicación', REVERSE_FAILURE_MESSAGE)
+            return
+        }
+        commitSelection({ lat, lng, address: geo.address })
     }
 
     return (
