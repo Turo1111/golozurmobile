@@ -10,7 +10,9 @@ export type ReverseGeocodeResult =
     | { ok: false; reason: ReverseGeocodeFailureReason }
 
 const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
-const NOMINATIM_USER_AGENT = 'GolozurApp/1.0 (contact@example.com)'
+// Nominatim rejects requests with a placeholder contact (HTTP 403); it requires an
+// identifying User-Agent with a real contact channel. Shared by every Nominatim call.
+export const NOMINATIM_USER_AGENT = 'GolozurApp/1.0 (+https://github.com/Turo1111/golozurmobile)'
 // Cota global del pedido completo (incluye el reintento).
 const OVERALL_TIMEOUT_MS = 10000
 // Espera mínima entre intentos: respeta la política de uso de 1 request/segundo de Nominatim.

@@ -3,7 +3,7 @@ import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View, Tex
 import Icon from 'react-native-vector-icons/Feather'
 import { WebView } from 'react-native-webview'
 import { askLocationPermission, getCurrentCoords } from '../utils/location/permissions'
-import { reverseGeocode } from '../utils/location/reverseGeocode'
+import { NOMINATIM_USER_AGENT, reverseGeocode } from '../utils/location/reverseGeocode'
 
 const DEFAULT_REGION = { lat: -34.6037, lng: -58.3816, zoom: 12 }
 const REVERSE_FAILURE_MESSAGE = 'No se pudo obtener la dirección. Verifique la conexión e intente nuevamente.'
@@ -190,7 +190,7 @@ export default function ClienteLocationPicker({ value, onChange, readOnly, heigh
             setSearchLoading(true)
             const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&addressdetails=1&limit=6`
             const res = await fetch(url, {
-                headers: { 'User-Agent': 'GolozurApp/1.0 (contact@example.com)' }
+                headers: { 'User-Agent': NOMINATIM_USER_AGENT }
             })
             const data = await res.json()
             setSearchResults(Array.isArray(data) ? data : [])

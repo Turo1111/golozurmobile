@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Alert, Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, SafeAreaView, TextInput } from 'react-native'
 import Icon from 'react-native-vector-icons/Feather'
 import ClienteLocationPicker from './ClienteLocationPicker'
-import { reverseGeocode } from '../utils/location/reverseGeocode'
+import { NOMINATIM_USER_AGENT, reverseGeocode } from '../utils/location/reverseGeocode'
 
 const SEARCH_FAILURE_MESSAGE = 'No se pudo buscar la dirección. Verifique la conexión e intente nuevamente.'
 const REVERSE_FAILURE_MESSAGE = 'No se pudo obtener la dirección. Verifique la conexión e intente nuevamente.'
@@ -33,7 +33,7 @@ export default function FullScreenMapModal({ visible, value, onChange, onClose, 
             setSearchLoading(true)
             const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&addressdetails=1&limit=6`
             const res = await fetch(url, {
-                headers: { 'User-Agent': 'GolozurApp/1.0 (contact@example.com)' }
+                headers: { 'User-Agent': NOMINATIM_USER_AGENT }
             })
             const data = await res.json()
             setSearchResults(Array.isArray(data) ? data : [])
