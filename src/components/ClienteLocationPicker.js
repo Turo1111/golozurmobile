@@ -6,34 +6,57 @@ import { askLocationPermission, getCurrentCoords } from '../utils/location/permi
 import { reverseGeocode } from '../utils/location/reverseGeocode'
 
 const DEFAULT_REGION = { lat: -34.6037, lng: -58.3816, zoom: 12 }
+const REVERSE_FAILURE_MESSAGE = 'No se pudo obtener la dirección. Verifique la conexión e intente nuevamente.'
 
-export default function ClienteLocationPicker({ value, onChange, readOnly, height = 260, showSearch = true, showZoomControls = true, marginBottom = 0 }) {
+const hasFiniteCoords = (loc) => Number.isFinite(loc?.lat) && Number.isFinite(loc?.lng)
+
+export default function ClienteLocationPicker({ value, onChange, readOnly, height = 260, showSearch = true, showZoomControls = true, marginBottom = 0, allowDevicePrefill = false }) {
     const [selected, setSelected] = useState(value || null)
     const lastProgrammaticSetAtRef = useRef(0)
     const lastChangeSourceRef = useRef(null) // 'external' | 'search' | 'mylocation' | null
     const reverseReqIdRef = useRef(0)
+    const valueRef = useRef(value || null)
+    const userInteractedRef = useRef(false)
+    const mountedRef = useRef(true)
     const [loading, setLoading] = useState(false)
     const [permission, setPermission] = useState('undetermined')
 
     useEffect(() => {
+        mountedRef.current = true
+        return () => { mountedRef.current = false }
+    }, [])
+
+    useEffect(() => {
         // Cambio externo (propagado por padre)
+        valueRef.current = value || null
         lastChangeSourceRef.current = 'external'
         setSelected(value || null)
     }, [value])
 
     useEffect(() => {
-        (async () => {
+        // Prefill por GPS: solo en contextos habilitados (creación vacía), nunca en solo-lectura.
+        if (readOnly || !allowDevicePrefill) return
+        let cancelled = false
+        const prefillFromDevice = async () => {
             const status = await askLocationPermission()
+            if (cancelled || !mountedRef.current) return
             setPermission(status)
-            if (!value && status === 'granted') {
-                const coords = await getCurrentCoords()
-                if (coords) {
-                    lastChangeSourceRef.current = 'mylocation'
-                    setSelected({ lat: coords.lat, lng: coords.lng })
-                    onChange && onChange({ lat: coords.lat, lng: coords.lng })
-                }
-            }
-        })()
+            if (status !== 'granted') return
+            // No pedir GPS si ya hay una ubicación cargada o elegida por el usuario.
+            if (userInteractedRef.current || hasFiniteCoords(valueRef.current)) return
+            const coords = await getCurrentCoords()
+            if (cancelled || !mountedRef.current) return
+            if (!coords) return
+            // Revalidar al resolver: el padre o el usuario pudieron fijar una ubicación mientras tanto.
+            if (userInteractedRef.current || hasFiniteCoords(valueRef.current)) return
+            lastChangeSourceRef.current = 'mylocation'
+            setSelected({ lat: coords.lat, lng: coords.lng })
+            onChange && onChange({ lat: coords.lat, lng: coords.lng })
+        }
+        prefillFromDevice()
+        return () => { cancelled = true }
+        // Solo al montar: la decisión de prefill se evalúa cuando el picker inicializa.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const mapRegion = useMemo(() => {
@@ -66,20 +89,37 @@ export default function ClienteLocationPicker({ value, onChange, readOnly, heigh
         }
     }, [selected])
 
+    const restoreCommittedMarker = () => {
+        // El HTML mueve el marcador apenas se toca el mapa: si la geocodificación falla
+        // volvemos al marcador de la ubicación ya confirmada (si existe).
+        const committed = valueRef.current
+        if (!hasFiniteCoords(committed)) return
+        try {
+            webRef.current?.postMessage(JSON.stringify({ type: 'setMarker', lat: committed.lat, lng: committed.lng }))
+        } catch (_) { }
+    }
+
     const handleLongPress = async (coords) => {
         if (readOnly) return
+        userInteractedRef.current = true
         setLoading(true)
         const lat = coords.latitude
         const lng = coords.longitude
-        let address
         const myId = ++reverseReqIdRef.current
         const geo = await reverseGeocode(lat, lng)
+        if (!mountedRef.current) return
         if (myId !== reverseReqIdRef.current) {
             setLoading(false)
             return
         }
-        address = geo.address
-        const loc = { lat, lng, address }
+        if (!geo.ok || !geo.address) {
+            // No se comitea nada: se conserva la ubicación previa y se avisa al usuario.
+            restoreCommittedMarker()
+            Alert.alert('Ubicación', REVERSE_FAILURE_MESSAGE)
+            setLoading(false)
+            return
+        }
+        const loc = { lat, lng, address: geo.address }
         setSelected(loc)
         onChange && onChange(loc)
         setLoading(false)
@@ -87,8 +127,10 @@ export default function ClienteLocationPicker({ value, onChange, readOnly, heigh
 
     const handleUseMyLocation = async () => {
         if (readOnly) return
+        userInteractedRef.current = true
         setLoading(true)
         const status = permission === 'undetermined' ? await askLocationPermission() : permission
+        if (!mountedRef.current) return
         setPermission(status)
         if (status !== 'granted') {
             Alert.alert('Permiso de ubicación', 'No se pudo acceder a la ubicación. Selecciona el punto manualmente.')
@@ -96,31 +138,39 @@ export default function ClienteLocationPicker({ value, onChange, readOnly, heigh
             return
         }
         const coords = await getCurrentCoords()
+        if (!mountedRef.current) return
         if (!coords) {
             Alert.alert('Error', 'No se pudo obtener la ubicación actual')
             setLoading(false)
             return
         }
-        // Setear marker y mover mapa inmediatamente
-        const loc = { lat: coords.lat, lng: coords.lng }
-        lastChangeSourceRef.current = 'mylocation'
-        setSelected(loc)
-        onChange && onChange(loc)
+        // Mostrar avance en el mapa, pero comitear recién cuando la dirección resuelve.
         try {
             webRef.current?.postMessage(JSON.stringify({ type: 'setMarker', lat: coords.lat, lng: coords.lng }))
         } catch (_) { }
-        // Hacer reverse geocoding en segundo plano
         const myId = ++reverseReqIdRef.current
-        reverseGeocode(coords.lat, coords.lng).then((geo) => {
-            if (myId !== reverseReqIdRef.current) return
-            const updated = { lat: coords.lat, lng: coords.lng, address: geo?.address }
-            setSelected(updated)
-            onChange && onChange(updated)
-        }).finally(() => setLoading(false))
+        const geo = await reverseGeocode(coords.lat, coords.lng)
+        if (!mountedRef.current) return
+        if (myId !== reverseReqIdRef.current) {
+            setLoading(false)
+            return
+        }
+        if (!geo.ok || !geo.address) {
+            restoreCommittedMarker()
+            Alert.alert('Ubicación', REVERSE_FAILURE_MESSAGE)
+            setLoading(false)
+            return
+        }
+        const loc = { lat: coords.lat, lng: coords.lng, address: geo.address }
+        lastChangeSourceRef.current = 'mylocation'
+        setSelected(loc)
+        onChange && onChange(loc)
+        setLoading(false)
     }
 
     const handleClear = () => {
         if (readOnly) return
+        userInteractedRef.current = true
         setSelected(null)
         onChange && onChange(null)
     }
@@ -166,12 +216,7 @@ export default function ClienteLocationPicker({ value, onChange, readOnly, heigh
         return () => typingTimeout.current && clearTimeout(typingTimeout.current)
     }, [searchQuery, readOnly])
 
-    const handleSelectSearchResult = (item) => {
-        const lat = parseFloat(item.lat)
-        const lng = parseFloat(item.lon)
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
-        const address = item.display_name
-        const loc = { lat, lng, address }
+    const commitSelection = (loc) => {
         // Invalidar geocodings en curso para que no sobrescriban esta selección
         reverseReqIdRef.current += 1
         lastChangeSourceRef.current = 'search'
@@ -180,9 +225,37 @@ export default function ClienteLocationPicker({ value, onChange, readOnly, heigh
         setSelected(loc)
         onChange && onChange(loc)
         try {
-            webRef.current?.postMessage(JSON.stringify({ type: 'setMarker', lat, lng }))
+            webRef.current?.postMessage(JSON.stringify({ type: 'setMarker', lat: loc.lat, lng: loc.lng }))
         } catch (_) { }
         setSearchResults([])
+    }
+
+    const handleSelectSearchResult = async (item) => {
+        const lat = parseFloat(item.lat)
+        const lng = parseFloat(item.lon)
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+        userInteractedRef.current = true
+        const address = typeof item.display_name === 'string' ? item.display_name.trim() : ''
+        if (address) {
+            commitSelection({ lat, lng, address })
+            return
+        }
+        // Sin display_name: resolver la dirección con el geocoder acotado antes de comitear.
+        setLoading(true)
+        const myId = ++reverseReqIdRef.current
+        const geo = await reverseGeocode(lat, lng)
+        if (!mountedRef.current) return
+        if (myId !== reverseReqIdRef.current) {
+            setLoading(false)
+            return
+        }
+        if (!geo.ok || !geo.address) {
+            Alert.alert('Ubicación', REVERSE_FAILURE_MESSAGE)
+            setLoading(false)
+            return
+        }
+        commitSelection({ lat, lng, address: geo.address })
+        setLoading(false)
     }
 
     return (
