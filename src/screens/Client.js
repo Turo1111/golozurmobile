@@ -16,7 +16,10 @@ import useAdminEntityListController from '../hooks/useAdminEntityListController'
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
+const hasFiniteCoordinates = (lat, lng) => Number.isFinite(lat) && Number.isFinite(lng);
+
 const renderClientItem = ({ item, navigation, isConnected, onOpenMap }) => {
+    const hasLocation = hasFiniteCoordinates(item?.lat, item?.lng);
     return (
         <TouchableOpacity
             style={styles.clientCard}
@@ -71,8 +74,11 @@ const renderClientItem = ({ item, navigation, isConnected, onOpenMap }) => {
             {/* Botón de editar */}
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <TouchableOpacity
-                    style={[styles.editButton, { marginRight: 6 }]}
+                    style={[styles.editButton, { marginRight: 6 }, !hasLocation && styles.editButtonDisabled]}
                     onPress={() => onOpenMap && onOpenMap(item)}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: !hasLocation }}
+                    accessibilityLabel={hasLocation ? 'Ver ubicación en el mapa' : 'El cliente no tiene una ubicación guardada'}
                 >
                     <Icon name="map" size={18} color="#2563eb" />
                 </TouchableOpacity>
@@ -244,9 +250,20 @@ export default function Client({ navigation }) {
     }
 
     const handleOpenMap = (item) => {
-        if (!item?.lat || !item?.lng) return
+        if (!hasFiniteCoordinates(item?.lat, item?.lng)) {
+            dispatch(setAlert({
+                message: 'Este cliente no tiene una ubicación guardada.',
+                type: 'warning'
+            }))
+            return
+        }
         setMapClient({ id: item._id, lat: item.lat, lng: item.lng, address: item.address })
         setMapVisible(true)
+    }
+
+    const handleCloseMap = () => {
+        setMapVisible(false)
+        setMapClient(null)
     }
 
     const renderListEmpty = () => {
@@ -376,12 +393,14 @@ export default function Client({ navigation }) {
             <View style={styles.contentContainer}>
                 {renderContent()}
             </View>
-            <ReadOnlyClientMapModal
-                visible={mapVisible}
-                onClose={() => setMapVisible(false)}
-                initialValue={mapClient ? { lat: mapClient.lat, lng: mapClient.lng, address: mapClient.address } : null}
-                subscribeToLocation={mapClient ? subscribeToClientLocation(mapClient) : undefined}
-            />
+            {mapVisible && mapClient && (
+                <ReadOnlyClientMapModal
+                    visible={mapVisible}
+                    onClose={handleCloseMap}
+                    initialValue={{ lat: mapClient.lat, lng: mapClient.lng, address: mapClient.address }}
+                    subscribeToLocation={subscribeToClientLocation(mapClient)}
+                />
+            )}
         </View>
     )
 }
@@ -583,6 +602,9 @@ const styles = StyleSheet.create({
         padding: 8,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    editButtonDisabled: {
+        opacity: 0.45,
     },
     offlineMessage: {
         fontSize: 14,

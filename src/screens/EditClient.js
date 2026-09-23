@@ -273,15 +273,17 @@ export default function EditClient({ route, navigation }) {
                     <Text style={styles.buttonText}>Actualizar</Text>
                 </TouchableOpacity>
             </View>
-            <FullScreenMapModal
-                visible={mapVisible}
-                initialValue={location}
-                onClose={() => setMapVisible(false)}
-                onConfirm={(loc) => {
-                    setLocation(loc || null)
-                    setMapVisible(false)
-                }}
-            />
+            {mapVisible && (
+                <FullScreenMapModal
+                    visible={mapVisible}
+                    initialValue={location}
+                    onClose={() => setMapVisible(false)}
+                    onConfirm={(loc) => {
+                        setLocation(loc || null)
+                        setMapVisible(false)
+                    }}
+                />
+            )}
         </View>
     )
 }

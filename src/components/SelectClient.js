@@ -270,7 +270,7 @@ export default function SelectClient({ cliente, setIdCliente, idCliente }) {
                                     <Text style={{ marginTop: 6, color: '#64748b' }}>{location.address}</Text>
                                 )}
                                 <View style={{ position: 'relative' }}>
-                                    <ClienteLocationPicker value={location} onChange={setLocation} height={320} />
+                                    <ClienteLocationPicker value={location} onChange={setLocation} height={320} allowDevicePrefill />
                                     <TouchableOpacity
                                         onPress={() => setMapVisible(true)}
                                         style={{ position: 'absolute', top: 80, right: 5, backgroundColor: '#FFF', borderRadius: 22, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', elevation: 3 }}
@@ -300,15 +300,18 @@ export default function SelectClient({ cliente, setIdCliente, idCliente }) {
                             <Text style={styles.buttonText}>Guardar</Text>
                         </TouchableOpacity>
                     </View>
-                    <FullScreenMapModal
-                        visible={mapVisible}
-                        initialValue={location}
-                        onClose={() => setMapVisible(false)}
-                        onConfirm={(loc) => {
-                            setLocation(loc || null)
-                            setMapVisible(false)
-                        }}
-                    />
+                    {mapVisible && (
+                        <FullScreenMapModal
+                            visible={mapVisible}
+                            initialValue={location}
+                            allowDevicePrefill
+                            onClose={() => setMapVisible(false)}
+                            onConfirm={(loc) => {
+                                setLocation(loc || null)
+                                setMapVisible(false)
+                            }}
+                        />
+                    )}
                 </View>
             )}
         </View>

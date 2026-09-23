@@ -208,7 +208,7 @@ export default function NewClient({ navigation }) {
                             <Text style={{ marginTop: 6, color: '#64748b' }}>{location.address}</Text>
                         )}
                         <View style={{ position: 'relative' }}>
-                            <ClienteLocationPicker value={location} onChange={setLocation} height={320} />
+                            <ClienteLocationPicker value={location} onChange={setLocation} height={320} allowDevicePrefill />
                             <TouchableOpacity
                                 onPress={() => setMapVisible(true)}
                                 style={{ position: 'absolute', top: 80, right: 5, backgroundColor: '#FFF', borderRadius: 22, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', elevation: 3 }}
@@ -245,6 +245,7 @@ export default function NewClient({ navigation }) {
             <MapModalWrapper
                 visible={mapVisible}
                 value={location}
+                allowDevicePrefill
                 onChange={setLocation}
                 onClose={() => setMapVisible(false)}
                 onConfirm={(loc) => {
@@ -446,11 +447,14 @@ const styles = StyleSheet.create({
 });
 
 // Modal de mapa a pantalla completa
-function MapModalWrapper({ visible, onClose, onConfirm, value, onChange }) {
+function MapModalWrapper({ visible, onClose, onConfirm, value, onChange, allowDevicePrefill = false }) {
+    // Montaje condicional: el modal lee la ubicación actual en su primer render.
+    if (!visible) return null
     return (
         <FullScreenMapModal
             visible={visible}
             initialValue={value}
+            allowDevicePrefill={allowDevicePrefill}
             onChange={onChange}
             onClose={onClose}
             onConfirm={onConfirm}

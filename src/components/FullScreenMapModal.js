@@ -1,20 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, SafeAreaView, TextInput } from 'react-native'
+import { Alert, Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, SafeAreaView, TextInput } from 'react-native'
 import Icon from 'react-native-vector-icons/Feather'
 import ClienteLocationPicker from './ClienteLocationPicker'
 
-export default function FullScreenMapModal({ visible, value, onChange, onClose, onConfirm, readOnly, initialValue }) {
+const SEARCH_FAILURE_MESSAGE = 'No se pudo buscar la dirección. Verifique la conexión e intente nuevamente.'
+
+export default function FullScreenMapModal({ visible, value, onChange, onClose, onConfirm, readOnly, initialValue, allowDevicePrefill = false }) {
     const [searchQuery, setSearchQuery] = useState('')
     const [searchLoading, setSearchLoading] = useState(false)
     const [searchResults, setSearchResults] = useState([])
     const typingTimeout = useRef(null)
+    // La selección se toma de las props en el primer render: los consumidores montan el
+    // modal al abrirlo, así el picker recibe la ubicación sin depender del timing de efectos.
     const [selected, setSelected] = useState(initialValue || value || null)
-
-    useEffect(() => {
-        console.log('sincronizando selección local')
-        // sincronizar selección local cuando cambian las props controladas
-        setSelected(value ?? initialValue ?? null)
-    }, [value, initialValue])
 
     const searchPlaces = async () => {
         const q = searchQuery?.trim()
@@ -32,6 +30,7 @@ export default function FullScreenMapModal({ visible, value, onChange, onClose, 
             setSearchResults(Array.isArray(data) ? data : [])
         } catch (_e) {
             setSearchResults([])
+            Alert.alert('Búsqueda', SEARCH_FAILURE_MESSAGE)
         } finally {
             setSearchLoading(false)
         }
@@ -75,6 +74,7 @@ export default function FullScreenMapModal({ visible, value, onChange, onClose, 
                             onChange && onChange(loc)
                         }}
                         readOnly={!!readOnly}
+                        allowDevicePrefill={allowDevicePrefill}
                         height={Dimensions.get('window').height - 50}
                         showSearch={false}
                         showZoomControls={false}

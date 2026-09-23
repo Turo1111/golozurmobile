@@ -11,13 +11,10 @@ import ClienteLocationPicker from './ClienteLocationPicker'
 // - onClose: () => void
 // - subscribeToLocation?: (onLoc: (loc: {lat: number, lng: number, address?: string}) => void) => (() => void) | void
 export default function ReadOnlyClientMapModal({ visible, value, onClose, initialValue, subscribeToLocation }) {
+    // La selección se toma de las props en el primer render: los consumidores montan el
+    // modal al abrirlo, así el picker recibe la ubicación sin depender del timing de efectos.
     const [selected, setSelected] = useState(initialValue || value || null)
     const unsubscribeRef = useRef(null)
-
-    useEffect(() => {
-        setSelected(value ?? initialValue ?? null)
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [value, initialValue])
 
     useEffect(() => {
         if (!visible) return
@@ -47,6 +44,7 @@ export default function ReadOnlyClientMapModal({ visible, value, onClose, initia
                         value={selected}
                         onChange={(loc) => { setSelected(loc) }}
                         readOnly={true}
+                        allowDevicePrefill={false}
                         height={Dimensions.get('window').height - 40}
                         showSearch={false}
                         showZoomControls={true}
