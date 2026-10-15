@@ -127,6 +127,7 @@ export default function Home({ navigation }) {
           {hasPermissionRole && <ModuleCard icon="lock-outline" color="#8e44ad" title="ROLES" subtitle="Permisos y accesos" onPress={() => navigation.navigate('Roles')} />}
           {hasPermissionClient && <ModuleCard icon="account-multiple-outline" color="#e74c3c" title="CLIENTES" subtitle="Administrar clientes" onPress={() => navigation.navigate('Client')} />}
           {hasPermissionUser && <ModuleCard icon="database-sync" color="#2980b9" title="ALMACENAMIENTO" subtitle="Datos locales" onPress={() => navigation.navigate('InfoStorage')} />}
+          {hasPermissionUser && <ModuleCard icon="cog-outline" color="#555" title="CONFIGURACIÓN" subtitle="Ajustes del sistema" onPress={() => navigation.navigate('Settings')} />}
         </View>
 
 

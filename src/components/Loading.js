@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Animated, Easing, Text, Modal } from "react-native";
+import { View, StyleSheet, Animated, Easing, Text, Modal, Pressable } from "react-native";
 import { getLoading } from "../redux/loadingSlice";
 import { useAppSelector } from "../redux/hook";
 import Logo from './Logo';
+import { cancelThermalPrint } from '../utils/thermal/thermalPrintWorkflow';
 
 export default function Loading({ text = '' }) {
   const [scaleValue] = useState(new Animated.Value(1));
@@ -31,6 +32,7 @@ export default function Loading({ text = '' }) {
     <Modal
       transparent={true}
       visible={loading.open}
+      onRequestClose={() => { if (loading.thermal) cancelThermalPrint(loading.token); }}
     >
       <View style={styles.container}>
         <Animated.View style={{ transform: [{ scale: scaleValue }] }}>
@@ -39,6 +41,9 @@ export default function Loading({ text = '' }) {
         <Text
           style={styles.loadingText}
         >{loading.message || 'CARGANDO...'}</Text>
+        {loading.thermal && <Pressable accessibilityRole="button" onPress={() => cancelThermalPrint(loading.token)}>
+          <Text style={styles.loadingText}>Cancelar</Text>
+        </Pressable>}
       </View>
     </Modal>
   );

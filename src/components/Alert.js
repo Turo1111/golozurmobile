@@ -1,24 +1,26 @@
-import { StyleSheet, Text, View } from "react-native";
-import { clearAlert, getAlert } from "../redux/alertSlice";
+import { StyleSheet, Text, View, Modal, Pressable } from "react-native";
+import { clearAlert, getAlert, getBlockingAlert, dismissBlockingAlert } from "../redux/alertSlice";
 import { useAppDispatch, useAppSelector } from "../redux/hook";
 import { useEffect } from "react";
 
 export default function Alert() {
 
     const alert = useAppSelector(getAlert);
+    const blocking = useAppSelector(getBlockingAlert);
     const dispatch = useAppDispatch();
 
     useEffect(() => {
         if (alert.open) {
           const timeout = setTimeout(() => {
-            dispatch(clearAlert());
+            dispatch(clearAlert(alert.id));
           }, 3000); // Tiempo en milisegundos antes de ejecutar clearAlert
           
           return () => clearTimeout(timeout);
         } 
-    }, [alert.open, dispatch]);
+    }, [alert.open, alert.id, dispatch]);
 
   return (
+        <>
         <View style={[
             styles.container,
             {
@@ -28,11 +30,25 @@ export default function Alert() {
         ]} >
             <Text style={{ fontWeight: "bold", color: '#fff' }}>{alert.message || 'Esto es una alerta'}</Text>
         </View>
+        <Modal transparent visible={!!blocking} onRequestClose={() => {}}>
+            <View style={styles.blockingBackdrop}>
+                <View style={[styles.blockingNotice, { backgroundColor: blocking?.color }]}>
+                    {!!blocking?.title && <Text style={{ fontWeight: 'bold', color: '#fff' }}>{blocking.title}</Text>}
+                    <Text style={{ fontWeight: 'bold', color: '#fff' }}>{blocking?.message}</Text>
+                    <Pressable accessibilityRole="button" onPress={() => dispatch(dismissBlockingAlert(blocking?.id))}>
+                        <Text style={{ fontWeight: 'bold', color: '#fff', paddingTop: 15 }}>Aceptar</Text>
+                    </Pressable>
+                </View>
+            </View>
+        </Modal>
+        </>
     )
 }
 
 
 const styles = StyleSheet.create({
+  blockingBackdrop: { flex: 1, justifyContent: 'center', padding: 30, backgroundColor: 'rgba(0,0,0,0.35)' },
+  blockingNotice: { padding: 15, borderRadius: 15 },
   container: {
     flex: 1,
     padding: 15,

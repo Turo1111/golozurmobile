@@ -36,10 +36,12 @@ export const encodeText = (value) => {
   return bytes;
 };
 
-// Reset de impresora. Fase 0 puede requerir `ESC t 2` (se centraliza en constants.js).
-export const init = () => {
+// Reset de impresora. Acepta cfg opcional para emitir el comando de código de página
+// según la configuración persistida (en lugar de la constante estática del módulo).
+export const init = (cfg = null) => {
+  const useCP = cfg != null ? cfg.useCodePageCommand : PAPER_58MM.useCodePageCommand;
   const parts = [new Uint8Array(ESC_POS_COMMANDS.init)];
-  if (PAPER_58MM.useCodePageCommand) {
+  if (useCP) {
     parts.push(new Uint8Array(ESC_POS_COMMANDS.codePagePC850));
   }
   return concatBytes(parts);
@@ -62,13 +64,12 @@ export const text = (value = '') => concatBytes([encodeText(value), new Uint8Arr
 
 // Dos columnas en una línea de `columns` (decisión 1.3):
 // izquierda = columns - right.length; si right > columns - 10 → dos líneas.
-export const twoColumns = (left = '', right = '') => {
+export const twoColumns = (left = '', right = '', columns = PAPER_58MM.columns) => {
   const leftText = String(left);
   const rightText = String(right);
-  const { columns } = PAPER_58MM;
 
   if (rightText.length > columns - MIN_LEFT_WIDTH) {
-    // Ninguna línea puede superar el ancho del papel; cada línea visual se rellena a 32.
+    // Ninguna línea puede superar el ancho del papel; cada línea visual se rellena.
     return concatBytes([
       text(leftText.slice(0, columns).padEnd(columns)),
       text(rightText.slice(0, columns).padEnd(columns)),
@@ -80,8 +81,8 @@ export const twoColumns = (left = '', right = '') => {
   return text(clippedLeft.padEnd(leftWidth) + rightText);
 };
 
-// Separador de ancho completo (32 guiones).
-export const separator = () => text('-'.repeat(PAPER_58MM.columns));
+// Separador de ancho completo. Acepta columns opcional; por defecto usa PAPER_58MM.columns.
+export const separator = (columns = PAPER_58MM.columns) => text('-'.repeat(columns));
 
 export const feed = (lines = PAPER_58MM.feedLines) => {
   const safeLines = Math.max(0, Math.min(255, Math.trunc(Number(lines) || 0)));
@@ -89,3 +90,22 @@ export const feed = (lines = PAPER_58MM.feedLines) => {
 };
 
 export const cut = () => new Uint8Array(ESC_POS_COMMANDS.partialCut);
+
+// ESC/POS full cut: GS V 0 (0x1d 0x56 0x00).
+export const fullCut = () => new Uint8Array([0x1d, 0x56, 0x00]);
+
+// ESC E n: bold on (n=1) / off (n=0).
+export const bold = (on = true) => new Uint8Array([0x1b, 0x45, on ? 1 : 0]);
+
+// ESC M n: select character font (0 = Font A normal, 1 = Font B condensed).
+// Font B fits ~30% more characters per line on the same paper width.
+export const fontSelect = (font = 'A') =>
+  new Uint8Array(font === 'B' ? ESC_POS_COMMANDS.fontB : ESC_POS_COMMANDS.fontA);
+
+// ESC J n: advance paper n dot-lines immediately (no character printed).
+// 1 dot ≈ 0.125 mm on most 58mm printers (203 dpi). Default line height ≈ 30 dots.
+// Use for sub-line-height spacing between items.
+export const paperFeed = (dots = 0) => {
+  const safe = Math.max(0, Math.min(255, Math.trunc(Number(dots) || 0)));
+  return new Uint8Array([0x1b, 0x4a, safe]);
+};

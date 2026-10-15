@@ -20,7 +20,8 @@ import AlertDeleteSale from '../components/AlertDeleteSale';
 import { WebView } from 'react-native-webview';
 import { Linking } from 'react-native';
 import ReadOnlyClientMapModal from '../components/ReadOnlyClientMapModal'
-import { printSaleTicket } from '../utils/thermal/printSaleTicket';
+import useThermalPrintWorkflow from '../hooks/useThermalPrintWorkflow';
+import ThermalPrintModal from '../components/ThermalPrintModal';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
@@ -30,6 +31,7 @@ const arrayBufferToBase64 = (buffer) => {
 
 
 export default function DetailsSale({ route, navigation }) {
+  const workflow = useThermalPrintWorkflow(navigation);
 
   const { id } = route.params;
   const user = useAppSelector(getUser)
@@ -188,7 +190,7 @@ export default function DetailsSale({ route, navigation }) {
   const printThermalSale = () => {
     if (!details) return
     const saleId = details?.r?._id
-    return printSaleTicket(saleId ? { mode: 'online', saleId } : { mode: 'provided', provided: details })
+    return workflow.start(saleId ? { mode: 'online', saleId } : { mode: 'provided', provided: JSON.parse(JSON.stringify(details)) })
   }
 
   const ProductItem = ({ item }) => {
@@ -218,6 +220,7 @@ export default function DetailsSale({ route, navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F6F8FA' }}>
+      <ThermalPrintModal workflow={workflow} />
       <View style={{ backgroundColor: '#2563eb', borderBottomLeftRadius: 18, borderBottomRightRadius: 18, paddingTop: 50, paddingBottom: 18, paddingHorizontal: 15, elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>

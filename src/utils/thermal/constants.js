@@ -24,11 +24,15 @@ export const ESC_POS_COMMANDS = {
   partialCut: [0x1d, 0x56, 0x42, 0x00],
   // ESC t 2 (PC850). Solo se emite si `useCodePageCommand` está activo.
   codePagePC850: [0x1b, 0x74, 0x02],
+  // ESC M n: selección de fuente (0 = Font A normal, 1 = Font B condensada).
+  fontA: [0x1b, 0x4d, 0x00],
+  fontB: [0x1b, 0x4d, 0x01],
 };
 
 export const PAPER_58MM = {
   id: '58mm',
-  columns: 32, // Font A: 384 puntos / 12 puntos por carácter
+  columns: 32,    // Font A: 384 puntos / 12 puntos por carácter
+  fontBColumns: 42, // Font B: 384 puntos / ~9 puntos por carácter (aproximado)
   feedLines: 4,
   // Fase 0 pendiente: activar si la impresora no usa PC850 por defecto.
   useCodePageCommand: false,

@@ -1,0 +1,48 @@
+# Preserve every existing .gitignore rule; .easignore takes precedence for uploads.
+node_modules/
+.expo/
+dist/
+web-build/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+.env*.local
+*.tsbuildinfo
+android
+.env
+.env.production
+.env.development
+.atl/
+
+# Exclude raw environment files (including tracked templates) and auth/signing material.
+.env*
+.npmrc
+credentials*.json
+service-account*.json
+*serviceAccount*.json
+*.keystore
+*.pfx
+.ssh/
+.gnupg/
+
+# Local VCS, cache, diagnostics and build outputs are not app source.
+.git
+.eas/
+.cache/
+coverage/
+build/
+*.log
+*.apk
+*.aab
+*.apks
+
+# Source, assets, tests and passive third-party notices remain included.

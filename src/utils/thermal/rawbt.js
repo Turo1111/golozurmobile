@@ -8,12 +8,12 @@ export const RAWBT_PLAY_STORE_URL = 'https://play.google.com/store/apps/details?
 export const buildRawBTUri = (bytes) => `rawbt:base64,${Buffer.from(bytes).toString('base64')}`;
 
 // Devuelve true si el scheme pudo abrirse; ante error muestra la alerta con el enlace HTTPS.
-export const sendToRawBT = async (bytes) => {
+export const sendToRawBT = async (bytes, { silent = false } = {}) => {
   try {
     await Linking.openURL(buildRawBTUri(bytes));
     return true;
   } catch (error) {
-    Alert.alert(
+    if (!silent) Alert.alert(
       'RawBT no está instalado',
       `Instalá RawBT para imprimir en la térmica:\n${RAWBT_PLAY_STORE_URL}`,
       [

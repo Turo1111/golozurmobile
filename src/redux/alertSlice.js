@@ -1,27 +1,42 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, nanoid } from '@reduxjs/toolkit';
 
 const initialState = {
   message: '',
   type: '',
   open: false,
   color: '',
+  id: null,
+  blocking: null,
+  queue: [],
 };
 
 const alertSlice = createSlice({
   name: 'alert',
   initialState,
   reducers: {
-    setAlert: (state, action) => {
-      state.message = action.payload.message;
-      state.type = action.payload.type;
-      state.open = true;
-      state.color = getColorByType(action.payload.type);
+    setAlert: {
+      prepare: (payload) => ({ payload: { ...payload, id: payload.id || nanoid() } }),
+      reducer: (state, action) => {
+        const notice = { ...action.payload, open: true, color: getColorByType(action.payload.type) };
+        if (notice.blocking) state.blocking = notice;
+        else if (notice.thermal && state.open) state.queue.push(notice);
+        else Object.assign(state, { ...notice, blocking: state.blocking });
+      },
     },
-    clearAlert: (state) => {
+    dismissBlockingAlert: (state, action) => {
+      if (state.blocking?.id === action.payload) state.blocking = null;
+    },
+    clearAlert: (state, action) => {
+      if (action.payload && action.payload !== state.id) return;
+      if (state.queue.length) {
+        Object.assign(state, { ...state.queue.shift(), blocking: state.blocking });
+        return;
+      }
       state.message = '';
       state.type = '';
       state.open = false;
       state.color = '';
+      state.id = null;
     },
   },
 });
@@ -40,5 +55,6 @@ const getColorByType = (type) => {
 };
 
 export const getAlert = (state) => state.alert;
-export const { setAlert, clearAlert } = alertSlice.actions;
+export const getBlockingAlert = (state) => state.alert.blocking;
+export const { setAlert, clearAlert, dismissBlockingAlert } = alertSlice.actions;
 export default alertSlice.reducer;

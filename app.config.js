@@ -15,7 +15,13 @@ export default () => ({
             backgroundColor: "#ffffff"
         },
         plugins: [
-            "expo-image-picker"
+            "expo-image-picker",
+            ["react-native-ble-plx", {
+                isBackgroundEnabled: false,
+                neverForLocation: true,
+                modes: [],
+                bluetoothAlwaysPermission: false
+            }]
         ],
         assetBundlePatterns: ["**/*"],
         ios: {

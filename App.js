@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import NavigationStack from './src/navigation/NavigationStack';
 import Loading from './src/components/Loading';
 import Alert from './src/components/Alert';
+import ThermalReceiptRenderer from './src/components/ThermalReceiptRenderer';
 
 // Import Store
 import { store } from './src/redux/store';
@@ -54,6 +55,7 @@ export default function App() {
             <NavigationStack />
             <Loading />
             <Alert />
+            <ThermalReceiptRenderer />
           </NavigationContainer>
         </OfflineProvider>
       </Provider>

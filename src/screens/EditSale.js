@@ -23,7 +23,7 @@ import Constants from 'expo-constants';
 import usePermissionCheck from '../hooks/usePermissionCheck';
 import Icon from 'react-native-vector-icons/Feather';
 import useProductListController from '../hooks/useProductListController';
-import { printSaleTicket } from '../utils/thermal/printSaleTicket';
+import useThermalPrintWorkflow from '../hooks/useThermalPrintWorkflow';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
@@ -78,6 +78,7 @@ const renderItem = ({ item, navigation, addSelectProduct }) => {
 const HEADER_BLUE = '#2563eb';
 
 export default function EditSale({ navigation, route }) {
+    const workflow = useThermalPrintWorkflow(navigation);
     const { id } = route.params;
 
     const user = useAppSelector(getUser)
@@ -356,18 +357,18 @@ export default function EditSale({ navigation, route }) {
     // Impresión térmica: online por el `id` de ruta; offline con la venta editada en memoria.
     const printSale = () => {
         if (offline) {
-            return printSaleTicket({
+            return workflow.start({
                 mode: 'provided',
                 provided: {
                     _id: id,
                     cliente: cliente.value,
                     total: total,
                     createdAt: saleDetails?.r?.createdAt || new Date().toISOString(),
-                    itemsSale: lineaVenta,
+                    itemsSale: JSON.parse(JSON.stringify(lineaVenta)),
                 },
             })
         }
-        return printSaleTicket({ mode: 'online', saleId: id })
+        return workflow.start({ mode: 'online', saleId: id })
     }
 
     useEffect(() => {
@@ -499,7 +500,7 @@ export default function EditSale({ navigation, route }) {
             }
             {
                 openAlertPost &&
-                <AlertPostSale open={openAlertPost} onClose={() => navigation.navigate('DetailsSale', { id })} post={() => navigation.navigate('DetailsSale', { id })} print={printSale} />
+                <AlertPostSale open={openAlertPost} onClose={() => navigation.navigate('DetailsSale', { id })} post={() => navigation.navigate('DetailsSale', { id })} print={printSale} workflow={workflow} />
             }
             {
                 openAlertDelete &&

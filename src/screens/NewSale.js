@@ -23,7 +23,7 @@ import usePermissionCheck from '../hooks/usePermissionCheck';
 import Icon from 'react-native-vector-icons/Feather';
 import SelectClient from '../components/SelectClient';
 import useProductListController from '../hooks/useProductListController';
-import { printSaleTicket } from '../utils/thermal/printSaleTicket';
+import useThermalPrintWorkflow from '../hooks/useThermalPrintWorkflow';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
@@ -79,6 +79,7 @@ const renderItem = ({ item, navigation, addSelectProduct }) => {
 const HEADER_BLUE = '#2563eb';
 
 export default function NewSale({ navigation }) {
+  const workflow = useThermalPrintWorkflow(navigation);
 
   const user = useAppSelector(getUser)
   const { data: userStorage } = useLocalStorage([], 'user')
@@ -300,7 +301,7 @@ export default function NewSale({ navigation }) {
 
   const printCreatedSale = () => {
     if (!printContext) return
-    return printSaleTicket(printContext)
+    return workflow.start(JSON.parse(JSON.stringify(printContext)))
   }
 
   useEffect(() => {
@@ -433,7 +434,7 @@ export default function NewSale({ navigation }) {
       }
       {
         openAlertPost &&
-        <AlertPostSale open={openAlertPost} onClose={() => navigation.navigate('Sale')} post={() => navigation.navigate('Sale')} print={printCreatedSale} />
+        <AlertPostSale open={openAlertPost} onClose={() => navigation.navigate('Sale')} post={() => navigation.navigate('Sale')} print={printCreatedSale} workflow={workflow} />
       }
       <ResumeBottomSheet onPress={() => setOpenBS(true)} totalCart={total} longCart={lineaVenta.length} />
       <MyBottomSheet open={openBS} onClose={() => setOpenBS(false)} fullScreen={true} >

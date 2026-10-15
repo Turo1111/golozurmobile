@@ -20,7 +20,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { decode as base64Decode } from 'base-64'
 import ListModeSwitch from '../components/ListModeSwitch';
 import useSalesListController from '../hooks/useSalesListController';
-import { printSaleTicket } from '../utils/thermal/printSaleTicket';
+import useThermalPrintWorkflow from '../hooks/useThermalPrintWorkflow';
+import ThermalPrintModal from '../components/ThermalPrintModal';
 
 const decodeJWT = (token) => {
   try {
@@ -60,6 +61,7 @@ const getInitials = (name) => {
 };
 
 export default function Sale({ navigation }) {
+  const workflow = useThermalPrintWorkflow(navigation);
 
   const user = useAppSelector(getUser)
   const { data: userStorage, clearData } = useLocalStorage([], 'user')
@@ -597,7 +599,7 @@ export default function Sale({ navigation }) {
                     hasPermissionUpdateSale={hasPermissionUpdateSale}
                     onPress={() => handleSalePress(item)}
                     onDownloadPDF={() => downloadAndSharePDF(item)}
-                    onPrintThermal={() => printSaleTicket({ mode: 'online', saleId: item._id })}
+                    onPrintThermal={() => workflow.start({ mode: 'online', saleId: item._id })}
                   />
                 )}
                 keyExtractor={(item) => item._id}
@@ -622,7 +624,7 @@ export default function Sale({ navigation }) {
                   item={item}
                   isOffline={true}
                   hasPermissionUpdateSale={hasPermissionUpdateSale}
-                  onPrintThermal={() => printSaleTicket({ mode: 'provided', provided: item })}
+                  onPrintThermal={() => workflow.start({ mode: 'provided', provided: JSON.parse(JSON.stringify(item)) })}
                 />
               )}
               keyExtractor={(_, index) => `offline-sale-${index}`}
@@ -633,6 +635,7 @@ export default function Sale({ navigation }) {
           </View>
       }
 
+      <ThermalPrintModal workflow={workflow} />
       {showScrollTopButton && (
         <TouchableOpacity style={styles.scrollTopButton} onPress={handlePressScrollTop}>
           <Icon name="arrow-up" size={18} color="#fff" />

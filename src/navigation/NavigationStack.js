@@ -27,6 +27,7 @@ import SalesStats from '../screens/SalesStats';
 import StatsHome from '../screens/StatsHome';
 import UserStats from '../screens/UserStats';
 import UserStatsDetails from '../screens/UserStatsDetails';
+import Settings from '../screens/Settings';
 
 const Stack = createNativeStackNavigator();
 
@@ -61,6 +62,7 @@ export default function NavigationStack() {
       <Stack.Screen name='SalesStats' component={SalesStats} options={{ headerShown: false }} />
       <Stack.Screen name='ProductStats' component={ProductStats} options={{ headerShown: false }} />
       <Stack.Screen name='InfoStorage' component={InfoStorage} options={{ headerShown: false }} />
+      <Stack.Screen name='Settings' component={Settings} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
 }

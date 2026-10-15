@@ -1,8 +1,9 @@
 import { PAPER_58MM } from './constants';
-import { align, concatBytes, cut, feed, init, separator, size, text, twoColumns } from './escpos';
+import { align, bold, concatBytes, cut, feed, fontSelect, fullCut, init, paperFeed, separator, size, text, twoColumns } from './escpos';
+import { loadTicketConfig, TICKET_CONFIG_DEFAULTS } from './ticketConfig';
 
-const COLUMNS = PAPER_58MM.columns;
-const ITEM_LEFT_WIDTH = 22; // columna izquierda de la fila de ítem (precio a la derecha)
+// Kept for unit-test usage.
+const ITEM_LEFT_WIDTH = 22;
 const CONTINUATION_INDENT = 3;
 
 // Formato determinista es-AR: no depende de Intl ni de la configuración del teléfono,
@@ -24,11 +25,7 @@ export const formatDateTime = (value) => {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-// Envuelve `{cantidad}x {descripción}` en la columna izquierda de 22 columnas.
-// `firstLineWidth` permite acortar solo la primera línea cuando la columna derecha
-// (precio) deja menos espacio útil; la cola continúa en las líneas normales de
-// continuación, así ningún carácter se pierde. Las continuaciones suman 3 espacios
-// de indentación: 3 + hasta 19.
+// Exported for unit tests; runtime uses buildSaleTicket which computes columns dynamically.
 export const wrapItemLines = (item, firstLineWidth = ITEM_LEFT_WIDTH) => {
   const cantidad = item?.cantidad ?? 0;
   const descripcion = item?.descripcion ?? '';
@@ -44,46 +41,138 @@ export const wrapItemLines = (item, firstLineWidth = ITEM_LEFT_WIDTH) => {
   return lines;
 };
 
-// Layout del ticket de venta (RFC §7.5): encabezado centrado, fecha/hora, cliente,
-// ítems continuos (sin chunks ni "Ticket X de Y"), TOTAL, leyenda y corte parcial.
-export const buildSaleTicket = (ticketData) => {
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+// Returns the effective column count for a given font letter ('A' | 'B').
+const columnsForFont = (font, cfg) =>
+  font === 'B'
+    ? (cfg.fontBColumns ?? PAPER_58MM.fontBColumns)
+    : (cfg.columns ?? PAPER_58MM.columns);
+
+// Emit font + height commands for a section; returns [fontCmd, sizeCmd] or [].
+// Width is always kept at 1x so column math is preserved.
+const sectionStart = (font, heightMult) => {
+  const parts = [];
+  if (font === 'B') parts.push(fontSelect('B'));
+  if (heightMult > 1) parts.push(size(1, heightMult));
+  return parts;
+};
+
+// Reset font and size back to defaults (Font A, 1×1).
+// Does NOT emit init() to avoid resetting alignment unnecessarily.
+const sectionEnd = (font, heightMult) => {
+  const parts = [];
+  if (heightMult > 1) parts.push(size(1, 1));
+  if (font === 'B') parts.push(fontSelect('A'));
+  return parts;
+};
+
+// ── layout ───────────────────────────────────────────────────────────────────
+
+// Layout del ticket de venta: encabezado centrado, fecha/hora, cliente,
+// ítems continuos, TOTAL, leyenda y corte.
+// Acepta un objeto `cfg` con los parámetros de ticketConfig para permitir
+// preview en tiempo real desde la pantalla de Settings.
+export const buildSaleTicket = (ticketData, cfg = TICKET_CONFIG_DEFAULTS) => {
   const data = ticketData ?? {};
   const items = Array.isArray(data.items) ? data.items : [];
 
+  // Font A column count is the paper width reference (used for separators and the total line).
+  const COLUMNS = cfg.columns ?? PAPER_58MM.columns;
+
+  // Column count when the body section uses Font B.
+  const bodyColumns = columnsForFont(cfg.bodyFont ?? 'A', cfg);
+  const bodyItemLeftWidth = Math.min(22, bodyColumns - 8);
+  const bodyContinuationWidth = bodyItemLeftWidth - CONTINUATION_INDENT;
+
   const parts = [
-    init(),
+    // ── Title ───────────────────────────────────────────────────────────────
+    init(cfg),
     align('center'),
-    size(2, 2),
+    size(cfg.titleWidthMultiplier, cfg.titleHeightMultiplier),
     text('GOLOZUR'),
-    size(1, 1),
+    init(cfg), // full reset after big title — prevents buffer issues on cheap printers
+
+    // ── Header info section (Fecha / Cliente) ────────────────────────────
     align('left'),
+    ...sectionStart(cfg.headerFont ?? 'A', cfg.headerHeightMultiplier ?? 1),
     text(`Fecha: ${formatDateTime(data.fecha)}`),
     text(`Cliente: ${data.cliente ?? ''}`),
-    separator(),
+    ...sectionEnd(cfg.headerFont ?? 'A', cfg.headerHeightMultiplier ?? 1),
+
+    // Separator always in Font A so its width is consistent with the paper.
+    separator(COLUMNS),
   ];
+
+  // ── Items section ─────────────────────────────────────────────────────────
+  parts.push(...sectionStart(cfg.bodyFont ?? 'A', cfg.bodyHeightMultiplier ?? 1));
+  if (cfg.bodyBold) parts.push(bold(true));
 
   items.forEach((item) => {
     const right = formatMoney(item?.total);
-    // La primera línea de la descripción debe convivir con el precio: si el precio
-    // ocupa más de 10 columnas, la primera línea se acorta y la cola se derrama a
-    // las continuaciones (3 espacios dentro de 22). Ningún carácter se recorta.
-    const firstLineWidth = Math.min(ITEM_LEFT_WIDTH, COLUMNS - right.length);
-    wrapItemLines(item, firstLineWidth).forEach((line, index) => {
+    const firstLineWidth = Math.min(bodyItemLeftWidth, bodyColumns - right.length);
+
+    const wrapLines = (it, firstW) => {
+      const cantidad = it?.cantidad ?? 0;
+      const descripcion = it?.descripcion ?? '';
+      const title = `${cantidad}x ${descripcion}`.trimEnd();
+      const w = Number.isFinite(Number(firstW)) ? Math.max(0, Math.trunc(Number(firstW))) : bodyItemLeftWidth;
+      const lines = [title.slice(0, w)];
+      const rest = title.slice(w);
+      for (let i = 0; i < rest.length; i += bodyContinuationWidth) {
+        lines.push(' '.repeat(CONTINUATION_INDENT) + rest.slice(i, i + bodyContinuationWidth));
+      }
+      return lines;
+    };
+
+    wrapLines(item, firstLineWidth).forEach((line, index) => {
       if (index === 0) {
-        parts.push(twoColumns(line, right));
+        parts.push(twoColumns(line, right, bodyColumns));
       } else {
-        parts.push(text(line.padEnd(COLUMNS)));
+        parts.push(text(line.padEnd(bodyColumns)));
       }
     });
+
+    // Extra paper advance between items (not after the last). ESC J n: sub-line precision.
+    const spacing = cfg.itemSpacing ?? 0;
+    if (spacing > 0 && items.indexOf(item) < items.length - 1) {
+      parts.push(paperFeed(spacing));
+    }
   });
 
-  parts.push(separator());
-  parts.push(twoColumns('TOTAL', formatMoney(data.total)));
+  if (cfg.bodyBold) parts.push(bold(false));
+  parts.push(...sectionEnd(cfg.bodyFont ?? 'A', cfg.bodyHeightMultiplier ?? 1));
+
+  // Separator back in Font A.
+  parts.push(separator(COLUMNS));
+
+  // ── Total line ────────────────────────────────────────────────────────────
+  if (cfg.totalWidthMultiplier > 1 || cfg.totalHeightMultiplier > 1) {
+    parts.push(size(cfg.totalWidthMultiplier, cfg.totalHeightMultiplier));
+  }
+  parts.push(twoColumns('TOTAL', formatMoney(data.total), COLUMNS));
+  if (cfg.totalWidthMultiplier > 1 || cfg.totalHeightMultiplier > 1) {
+    parts.push(size(1, 1));
+  }
+
+  // ── Footer section ────────────────────────────────────────────────────────
   parts.push(align('center'));
+  parts.push(...sectionStart(cfg.footerFont ?? 'A', cfg.footerHeightMultiplier ?? 1));
   parts.push(text('*NO VALIDO COMO FACTURA'));
+  parts.push(...sectionEnd(cfg.footerFont ?? 'A', cfg.footerHeightMultiplier ?? 1));
+
   parts.push(align('left'));
-  parts.push(feed(4));
-  parts.push(cut());
+  parts.push(feed(cfg.feedLines));
+
+  if (cfg.autoCut) {
+    parts.push(cfg.partialCut ? cut() : fullCut());
+  }
 
   return concatBytes(parts);
+};
+
+// Convenience: load config from AsyncStorage then build.
+export const buildSaleTicketFromStorage = async (ticketData) => {
+  const cfg = await loadTicketConfig();
+  return buildSaleTicket(ticketData, cfg);
 };
