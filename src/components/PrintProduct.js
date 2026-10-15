@@ -1,21 +1,16 @@
-import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import React, { useEffect, useState } from 'react'
 import ModalContainer from './ModalContainer'
 import { useAppDispatch, useAppSelector } from '../redux/hook'
 import { clearLoading, setLoading } from '../redux/loadingSlice'
 import apiClient from '../utils/client'
-import Button from './Button'
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
-import { Buffer } from 'buffer';
+import * as FileSystem from 'expo-file-system'
+import * as Sharing from 'expo-sharing'
+import { Buffer } from 'buffer'
 import { getUser } from '../redux/userSlice'
 import useLocalStorage from '../hooks/useLocalStorage'
 import usePermissionCheck from '../hooks/usePermissionCheck'
 import Icon from 'react-native-vector-icons/Feather'
-
-const arrayBufferToBase64 = (buffer) => {
-  return Buffer.from(buffer).toString('base64');
-};
 
 export default function PrintProduct({ open, onClose }) {
 
@@ -28,6 +23,7 @@ export default function PrintProduct({ open, onClose }) {
   const { data: userStorage } = useLocalStorage([], 'user')
   const dispatch = useAppDispatch()
   const [selectedOption, setSelectedOption] = useState('normal');
+  const [shareFormat, setShareFormat] = useState('images')
   const [discountPercentage, setDiscountPercentage] = useState(0);
   const [categoriaEstado, setCategoriaEstado] = useState({
     conDescuento: [],
@@ -81,127 +77,90 @@ export default function PrintProduct({ open, onClose }) {
     }
   }, [open])
 
-  const printApplyDiscount = async () => {
-    /* return */
-    if (categoriaEstado.conDescuento.length === 0 && categoriaEstado.sinDescuento.length === 0) {
+  const downloadAndShareProductList = async () => {
+    const isDiscountedMode = selectedOption === 'porcentaje'
+    if (isDiscountedMode && categoriaEstado.conDescuento.length === 0 && categoriaEstado.sinDescuento.length === 0) {
       alert('No hay categorías seleccionadas')
       return
     }
-    if (discountPercentage === 0) {
+    if (isDiscountedMode && Number(discountPercentage) <= 0) {
       alert('No hay descuento seleccionado')
       return
     }
-    const fileName = `ListaDePrecios.pdf`;
-    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-    dispatch(setLoading({
-      message: `Creando lista de productos`
-    }))
+
+    const selectedCategories = selectCategorie.map(item => item._id !== 0 && item.descripcion)
+    const payload = isDiscountedMode
+      ? { categories: categoriaEstado, discount: Number(discountPercentage) / 100 }
+      : { categories: selectedCategories[0] !== false ? selectedCategories : undefined, isPrecioUnitario: true }
+    const endpoint = isDiscountedMode
+      ? shareFormat === 'images' ? '/product/print/images-with-discount' : '/product/print/print-with-discount'
+      : shareFormat === 'images' ? '/product/print/images' : '/product/print/print'
+
+    dispatch(setLoading({ message: 'Creando lista de productos' }))
     try {
-      const response = await apiClient.post('/product/print/print-with-discount',
-        {
-          categories: categoriaEstado,
-          discount: discountPercentage / 100
-        },
-        {
-          responseType: 'arraybuffer',
+      if (shareFormat === 'images') {
+        const { default: Share } = await import('react-native-share')
+        const response = await apiClient.post(endpoint, payload, {
+          timeout: 60000,
           headers: {
-            Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
-          },
-        });
-      const pdfArrayBuffer = response.data;
+            Authorization: `Bearer ${user.token || userStorage.token}`
+          }
+        })
+        const images = response.data?.images
+        if (!Array.isArray(images) || images.length === 0) {
+          throw new Error('No se recibieron imágenes para compartir')
+        }
 
-      // Convertir el ArrayBuffer a Base64 usando Buffer
-      const pdfBase64 = arrayBufferToBase64(pdfArrayBuffer);
-
-      // Guardar el archivo en el sistema de archivos de Expo
-      await FileSystem.writeAsStringAsync(fileUri, pdfBase64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // Compartir el archivo utilizando expo-sharing
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
+        await Share.open({
+          urls: images.map(image => `data:${image.mimeType};base64,${image.base64}`),
+          type: 'image/jpeg',
+          filenames: images.map(image => image.filename),
+          failOnCancel: false,
+          useInternalStorage: true
+        })
+      } else {
+        const response = await apiClient.post(endpoint, payload, {
+          responseType: 'arraybuffer',
+          timeout: 60000,
+          headers: {
+            Authorization: `Bearer ${user.token || userStorage.token}`
+          }
+        })
+        const fileUri = `${FileSystem.documentDirectory}ListaDePrecios.pdf`
+        const pdfBase64 = Buffer.from(response.data).toString('base64')
+        await FileSystem.writeAsStringAsync(fileUri, pdfBase64, {
+          encoding: FileSystem.EncodingType.Base64
+        })
         await Sharing.shareAsync(fileUri, {
           mimeType: 'application/pdf',
           dialogTitle: 'Compartir PDF',
-          UTI: 'com.adobe.pdf',
-        });
-        dispatch(clearLoading())
-      } else {
-        alert('La función de compartir no está disponible en este dispositivo');
-        dispatch(clearLoading())
+          UTI: 'com.adobe.pdf'
+        })
       }
-      dispatch(clearLoading())
+
       onClose()
-      setSelectCategorie([{
-        _id: 0,
-        descripcion: 'Todas'
-      }])
-      setCategoriaEstado({
-        conDescuento: [],
-        sinDescuento: []
-      })
-      setDiscountPercentage(0)
+      setSelectCategorie([{ _id: 0, descripcion: 'Todas' }])
+      if (isDiscountedMode) {
+        setCategoriaEstado({ conDescuento: [], sinDescuento: [] })
+        setDiscountPercentage(0)
+      }
     } catch (error) {
-      console.log(error)
+      const wasCancelled = error?.code === 'E_SHARING_CANCELLED' || error?.message === 'User did not share'
+      if (wasCancelled) {
+        onClose()
+        setSelectCategorie([{ _id: 0, descripcion: 'Todas' }])
+        if (isDiscountedMode) {
+          setCategoriaEstado({ conDescuento: [], sinDescuento: [] })
+          setDiscountPercentage(0)
+        }
+      } else {
+        console.error('Error al generar o compartir la lista de precios:', error)
+        alert('No se pudo compartir la lista de precios')
+      }
+    } finally {
       dispatch(clearLoading())
     }
   }
-
-  const downloadAndSharePDF = async () => {
-    if (selectedOption === 'porcentaje') {
-      printApplyDiscount()
-      return
-    }
-
-    let filterCategorie = selectCategorie.map(item => item._id !== 0 && item.descripcion)
-    const fileName = `ListaDePrecios.pdf`;
-    const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-    dispatch(setLoading({
-      message: `Creando lista de productos`
-    }))
-    try {
-      // Descargar el archivo como ArrayBuffer
-      const response = await apiClient.post(`/product/print/print`, { categories: filterCategorie[0] !== false ? filterCategorie : undefined, isPrecioUnitario: true }, {
-        responseType: 'arraybuffer',
-        headers: {
-          Authorization: `Bearer ${user.token || userStorage.token}` // Agregar el token en el encabezado como "Bearer {token}"
-        },
-      });
-      const pdfArrayBuffer = response.data;
-
-      // Convertir el ArrayBuffer a Base64 usando Buffer
-      const pdfBase64 = arrayBufferToBase64(pdfArrayBuffer);
-
-      // Guardar el archivo en el sistema de archivos de Expo
-      await FileSystem.writeAsStringAsync(fileUri, pdfBase64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // Compartir el archivo utilizando expo-sharing
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/pdf',
-          dialogTitle: 'Compartir PDF',
-          UTI: 'com.adobe.pdf',
-        });
-        dispatch(clearLoading())
-      } else {
-        alert('La función de compartir no está disponible en este dispositivo');
-        dispatch(clearLoading())
-      }
-      dispatch(clearLoading())
-      onClose()
-      setSelectCategorie([{
-        _id: 0,
-        descripcion: 'Todas'
-      }])
-    } catch (error) {
-      console.error('Error descargando o compartiendo el PDF:', error);
-      dispatch(clearLoading())
-    }
-  };
 
   return (
     <View>
@@ -255,6 +214,29 @@ export default function PrintProduct({ open, onClose }) {
                 </TouchableOpacity>
               )
             }
+          </View>
+          <View style={styles.formatSelector}>
+            <Text style={styles.formatTitle}>Formato para compartir</Text>
+            <View style={styles.formatOptions}>
+              <TouchableOpacity
+                style={styles.formatOption}
+                onPress={() => setShareFormat('images')}
+              >
+                <View style={styles.radio}>
+                  {shareFormat === 'images' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.radioText}>Imágenes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.formatOption}
+                onPress={() => setShareFormat('pdf')}
+              >
+                <View style={styles.radio}>
+                  {shareFormat === 'pdf' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.radioText}>PDF</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           {
             (selectedOption === 'normal' || selectedOption === 'descuento') &&
@@ -368,7 +350,7 @@ export default function PrintProduct({ open, onClose }) {
               elevation: 3,
               marginTop: 10
             }}
-            onPress={downloadAndSharePDF}
+            onPress={downloadAndShareProductList}
           >
             <Icon name="printer" size={16} color="#fff" style={{ marginRight: 8 }} />
             <Text style={{
@@ -400,6 +382,27 @@ const styles = StyleSheet.create({
   radioGroup: {
     flexDirection: 'column',
     gap: 10,
+  },
+  formatSelector: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  formatTitle: {
+    color: '#666',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  formatOptions: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  formatOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
   },
   radioButton: {
     flexDirection: 'row',
