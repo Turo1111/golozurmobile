@@ -94,7 +94,7 @@ function harness(options = {}) {
 
 const mac = 'AA:BB:CC:DD:EE:FF';
 const nativeProfile = { printerTransport: 'mxw01', mxw01DeviceId: mac, mxw01DeviceName: 'MXW01' };
-const provided = { cliente: 'Test', fecha: new Date(2025, 0, 2, 3, 4), items: [{ cantidad: 1, descripcion: 'Test', total: 12.5 }], total: 12.5 };
+const provided = { cliente: 'Test', fecha: new Date(2025, 0, 2, 3, 4), items: [{ cantidad: 1, descripcion: 'Test', total: 12.5, precioUnitario: 12.5 }], total: 12.5 };
 const raster = (height = 1) => ({ width: 384, height, bytes: new Uint8Array(height * 48) });
 const fastLimits = { setupMs: 0, paceMs: 0, responseMs: 30, transferMs: 5000, completionMs: 30 };
 
@@ -645,10 +645,13 @@ test('RawBT default receipt bytes and URL dispatch are unchanged from the pre-ex
   const expected = Buffer.concat([
     Buffer.from([0x1b, 0x40, 0x1b, 0x61, 1, 0x1d, 0x21, 0x11]), Buffer.from('GOLOZUR\n'),
     Buffer.from([0x1b, 0x40, 0x1b, 0x61, 0]), Buffer.from('Fecha: 02/01/2025 03:04\nCliente: Test\n'),
-    Buffer.from('-'.repeat(32) + '\n'), Buffer.from('1x Test'.padEnd(26) + '$12,50\n'),
-    Buffer.from('-'.repeat(32) + '\n' + 'TOTAL'.padEnd(26) + '$12,50\n'),
     Buffer.from([0x1b, 0x61, 1]), Buffer.from('*NO VALIDO COMO FACTURA\n'),
-    Buffer.from([0x1b, 0x61, 0, 0x1b, 0x64, 4, 0x1d, 0x56, 0x42, 0]),
+    Buffer.from([0x1b, 0x61, 0]),
+    Buffer.from('-'.repeat(32) + '\n'),
+    Buffer.from('UNIDADES PRODUCTO'.padEnd(27) + 'TOTAL\n'),
+    Buffer.from('1 Test'.padEnd(26) + '$12,50\n'),
+    Buffer.from('-'.repeat(32) + '\n' + 'TOTAL'.padEnd(26) + '$12,50\n'),
+    Buffer.from([0x1b, 0x64, 4, 0x1d, 0x56, 0x42, 0]),
   ]);
   assert.deepEqual(Buffer.from(h.load('ticket.js').buildSaleTicket(provided)), expected);
   const result = await h.load('printSaleTicket.js').printSaleTicket({ mode: 'provided', provided });
@@ -1104,12 +1107,23 @@ test('measured wrapping/aligned amounts retain long names/descriptions and full 
   assert.ok(result.spans.some((span) => span.text === '$1.200,00'));
   assert.ok(result.spans.some((span) => span.text === '*NO VALIDO COMO FACTURA'));
   assert.ok(result.spans.some((span) => span.text === 'Adjustment'));
-  const first = result.spans.findIndex((span) => /^2x(?: |$)/.test(span.text));
-  const last = result.spans.findIndex((span) => span.text.startsWith('Unit:'));
-  const description = result.spans.slice(first, last).filter((span) => span.text !== '$1.000,00');
-  assert.equal(description.map((span) => span.text).join('').replace(/^2x\s*/, ''), data.items[0].descripcion);
+  // Both transports must show the same column captions above the product list.
+  assert.equal(result.spans.filter((span) => span.text === 'TOTAL').length, 2, 'caption row plus grand total line');
+  assert.ok(result.spans.some((span) => span.text === 'UNIDADES PRODUCTO'));
+  assert.ok(!result.spans.some((span) => span.text === 'P/unitario'), 'the unit price column is gone');
+  assert.ok(!result.spans.some((span) => span.text.startsWith('Unit:')), 'MXW01 must not print the legacy unit label');
+  assert.ok(result.spans.some((span) => span.text === '$1.000,00'), 'the right column holds the line total');
+  const first = result.spans.findIndex((span) => /^2(?: |$)/.test(span.text));
+  const captions = result.spans.findIndex((span) => span.text === 'UNIDADES PRODUCTO');
+  const footerIndex = result.spans.findIndex((span) => span.text === '*NO VALIDO COMO FACTURA');
+  assert.ok(footerIndex < captions, 'the invoice disclaimer must precede the column captions');
+  assert.ok(captions < first, 'column captions must precede the product list');
+  assert.ok(result.spans[footerIndex].top < result.rules[0], 'the disclaimer must sit above the first rule line');
+  const stop = result.spans.findIndex((span) => span.text === 'Items subtotal');
+  const description = result.spans.slice(first, stop).filter((span) => span.text !== '$1.000,00');
+  assert.equal(description.map((span) => span.text).join('').replace(/^2\s*/, ''), data.items[0].descripcion);
   assert.throws(() => receiptLayoutEngine().wrap('x'.repeat(2001), (text) => text.length, 20));
-  const huge = { ...model, items: Array.from({ length: 100 }, () => ({ description: 'x'.repeat(100), amount: '$1,00', unit: 'Unit: $1,00' })) };
+  const huge = { ...model, items: Array.from({ length: 100 }, () => ({ description: 'x'.repeat(100), amount: '$1,00' })) };
   assert.throws(() => receiptLayoutEngine().layout(huge, measure), /height limit/);
 });
 

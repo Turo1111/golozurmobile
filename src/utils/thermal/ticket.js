@@ -29,7 +29,7 @@ export const formatDateTime = (value) => {
 export const wrapItemLines = (item, firstLineWidth = ITEM_LEFT_WIDTH) => {
   const cantidad = item?.cantidad ?? 0;
   const descripcion = item?.descripcion ?? '';
-  const title = `${cantidad}x ${descripcion}`.trimEnd();
+  const title = `${cantidad} ${descripcion}`.trimEnd();
   const numericWidth = Number(firstLineWidth);
   const width = Number.isFinite(numericWidth) ? Math.max(0, Math.trunc(numericWidth)) : ITEM_LEFT_WIDTH;
   const lines = [title.slice(0, width)];
@@ -100,6 +100,14 @@ export const buildSaleTicket = (ticketData, cfg = TICKET_CONFIG_DEFAULTS) => {
     text(`Cliente: ${data.cliente ?? ''}`),
     ...sectionEnd(cfg.headerFont ?? 'A', cfg.headerHeightMultiplier ?? 1),
 
+    // ── Invoice disclaimer ────────────────────────────────────────────────
+    // Sits above the dashed separator at the operator's request.
+    align('center'),
+    ...sectionStart(cfg.footerFont ?? 'A', cfg.footerHeightMultiplier ?? 1),
+    text('*NO VALIDO COMO FACTURA'),
+    ...sectionEnd(cfg.footerFont ?? 'A', cfg.footerHeightMultiplier ?? 1),
+    align('left'),
+
     // Separator always in Font A so its width is consistent with the paper.
     separator(COLUMNS),
   ];
@@ -108,6 +116,9 @@ export const buildSaleTicket = (ticketData, cfg = TICKET_CONFIG_DEFAULTS) => {
   parts.push(...sectionStart(cfg.bodyFont ?? 'A', cfg.bodyHeightMultiplier ?? 1));
   if (cfg.bodyBold) parts.push(bold(true));
 
+  // Column captions for the item rows (RawBT text layout only).
+  parts.push(twoColumns('UNIDADES PRODUCTO', 'TOTAL', bodyColumns));
+
   items.forEach((item) => {
     const right = formatMoney(item?.total);
     const firstLineWidth = Math.min(bodyItemLeftWidth, bodyColumns - right.length);
@@ -115,7 +126,7 @@ export const buildSaleTicket = (ticketData, cfg = TICKET_CONFIG_DEFAULTS) => {
     const wrapLines = (it, firstW) => {
       const cantidad = it?.cantidad ?? 0;
       const descripcion = it?.descripcion ?? '';
-      const title = `${cantidad}x ${descripcion}`.trimEnd();
+      const title = `${cantidad} ${descripcion}`.trimEnd();
       const w = Number.isFinite(Number(firstW)) ? Math.max(0, Math.trunc(Number(firstW))) : bodyItemLeftWidth;
       const lines = [title.slice(0, w)];
       const rest = title.slice(w);
@@ -155,13 +166,7 @@ export const buildSaleTicket = (ticketData, cfg = TICKET_CONFIG_DEFAULTS) => {
     parts.push(size(1, 1));
   }
 
-  // ── Footer section ────────────────────────────────────────────────────────
-  parts.push(align('center'));
-  parts.push(...sectionStart(cfg.footerFont ?? 'A', cfg.footerHeightMultiplier ?? 1));
-  parts.push(text('*NO VALIDO COMO FACTURA'));
-  parts.push(...sectionEnd(cfg.footerFont ?? 'A', cfg.footerHeightMultiplier ?? 1));
-
-  parts.push(align('left'));
+  // ── Feed & cut ────────────────────────────────────────────────────────────
   parts.push(feed(cfg.feedLines));
 
   if (cfg.autoCut) {

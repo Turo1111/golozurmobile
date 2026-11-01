@@ -88,11 +88,13 @@ export const RECEIPT_LAYOUT_SOURCE = String.raw`function receiptLayoutEngine() {
     var header = style(model.headerFont, model.headerY, false);
     paragraph(model.date, header, false);
     paragraph(model.customer, header, false);
+    // Disclaimer sits above the dashed rule at the operator's request.
+    paragraph(model.footer, style(model.footerFont, model.footerY, false), true);
     rule();
     var body = style(model.bodyFont, model.bodyY, model.bodyBold);
+    pair('UNIDADES PRODUCTO', 'TOTAL', body);
     model.items.forEach(function (item, index) {
       pair(item.description, item.amount, body);
-      paragraph(item.unit, style(model.bodyFont, 1, false), false);
       if (index < model.items.length - 1) y += model.spacing;
     });
     rule();
@@ -103,7 +105,6 @@ export const RECEIPT_LAYOUT_SOURCE = String.raw`function receiptLayoutEngine() {
     var totalStyle = style('A', model.totalY, true);
     totalStyle.x = model.totalX;
     pair('TOTAL', model.total, totalStyle);
-    paragraph(model.footer, style(model.footerFont, model.footerY, false), true);
     y += model.feed * Math.ceil(model.size * 1.35) + margin;
     if (y > maxHeight) throw new Error('Receipt exceeds height limit');
     return { width: width, height: Math.ceil(y), spans: spans, rules: rules };

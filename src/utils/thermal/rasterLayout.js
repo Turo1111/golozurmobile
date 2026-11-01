@@ -12,9 +12,8 @@ export const createRasterModel = (data, config) => {
     throw new PrintingError('raster', 'Receipt amounts exceed the safe monetary range. Check the sale before printing.');
   }
   const items = data.items.map((item) => ({
-    description: `${item.cantidad}x ${item.descripcion}`,
+    description: `${item.cantidad} ${item.descripcion}`,
     amount: formatMoney(item.total),
-    unit: `Unit: ${formatMoney(item.precioUnitario)}`,
   }));
   const subtotal = data.items.reduce((sum, item) => sum + item.total, 0);
   if (!Number.isFinite(subtotal) || Math.abs(subtotal) > Number.MAX_SAFE_INTEGER / 100) {
