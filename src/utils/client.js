@@ -7,6 +7,11 @@ import { clearLoading } from '../redux/loadingSlice';
 
 const DB_HOST = Constants.expoConfig?.extra?.DB_HOST;
 
+// [debug] Muestra a qué API apunta la app (solo en desarrollo)
+if (__DEV__) {
+  console.log('[api] DB_HOST:', DB_HOST);
+}
+
 const apiClient = axios.create({
   baseURL: DB_HOST,
   timeout: 7000
@@ -42,6 +47,10 @@ apiClient.interceptors.request.use(
     const token = await getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // [debug] URL completa de cada request (solo en desarrollo)
+    if (__DEV__) {
+      console.log(`[api] ${String(config.method || 'get').toUpperCase()} ${config.baseURL || ''}${config.url || ''}`);
     }
     return config;
   },
