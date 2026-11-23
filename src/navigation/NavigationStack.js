@@ -28,6 +28,10 @@ import StatsHome from '../screens/StatsHome';
 import UserStats from '../screens/UserStats';
 import UserStatsDetails from '../screens/UserStatsDetails';
 import Settings from '../screens/Settings';
+import WhatsappHome from '../screens/WhatsappHome';
+import WhatsappServiceConfig from '../screens/WhatsappServiceConfig';
+import WhatsappGroupForm from '../screens/WhatsappGroupForm';
+import WhatsappGroupClients from '../screens/WhatsappGroupClients';
 
 const Stack = createNativeStackNavigator();
 
@@ -63,6 +67,10 @@ export default function NavigationStack() {
       <Stack.Screen name='ProductStats' component={ProductStats} options={{ headerShown: false }} />
       <Stack.Screen name='InfoStorage' component={InfoStorage} options={{ headerShown: false }} />
       <Stack.Screen name='Settings' component={Settings} options={{ headerShown: false }} />
+      <Stack.Screen name='WhatsappHome' component={WhatsappHome} options={{ headerShown: false }} />
+      <Stack.Screen name='WhatsappServiceConfig' component={WhatsappServiceConfig} options={{ headerShown: false }} />
+      <Stack.Screen name='WhatsappGroupForm' component={WhatsappGroupForm} options={{ headerShown: false }} />
+      <Stack.Screen name='WhatsappGroupClients' component={WhatsappGroupClients} options={{ headerShown: false }} />
     </Stack.Navigator>
   )
 }
