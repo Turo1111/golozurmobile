@@ -50,14 +50,25 @@ const renderClientItem = ({ item, navigation, isConnected, onOpenMap }) => {
                             </View>
                         )}
 
-                        {item.telefonos && item.telefonos.length > 0 && (
-                            <View style={styles.clientDetail}>
-                                <Icon name="phone" size={12} color="#799351" style={styles.detailIcon} />
-                                <Text style={[styles.detailText, { color: '#799351' }]}>
-                                    {item.telefonos[0]}
-                                </Text>
-                            </View>
-                        )}
+                        <View style={styles.clientDetail}>
+                            <Icon
+                                name="phone"
+                                size={12}
+                                color={item.telefonoActivo ? '#799351' : '#9ca3af'}
+                                style={styles.detailIcon}
+                            />
+                            <Text
+                                style={[
+                                    styles.detailText,
+                                    {
+                                        color: item.telefonoActivo ? '#799351' : '#9ca3af',
+                                        fontWeight: item.telefonoActivo ? '600' : '400'
+                                    }
+                                ]}
+                            >
+                                {item.telefonoActivo || 'Sin teléfono'}
+                            </Text>
+                        </View>
 
                         {item.address && (
                             <View style={styles.clientDetail}>

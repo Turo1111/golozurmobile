@@ -14,6 +14,8 @@ import Icon from 'react-native-vector-icons/Feather'
 import { OfflineContext } from '../context.js/contextOffline'
 import ClienteLocationPicker from '../components/ClienteLocationPicker'
 import FullScreenMapModal from '../components/FullScreenMapModal'
+import PhoneEditor from '../components/PhoneEditor'
+import useClientPhones from '../hooks/useClientPhones'
 
 const HEADER_BLUE = '#2563eb';
 
@@ -30,6 +32,7 @@ export default function NewClient({ navigation }) {
     const { offline } = useContext(OfflineContext)
 
     const { hasPermission: hasPermissionCreateClient, isLoading: isLoadingCreateClient } = usePermissionCheck('create_client', () => { })
+    const phones = useClientPhones()
 
     const formik = useFormik({
         initialValues: {
@@ -52,11 +55,21 @@ export default function NewClient({ navigation }) {
                 return
             }
 
+            const flushed = phones.flushPending()
+            if (!flushed.ok) {
+                dispatch(setAlert({ message: flushed.error, type: 'error' }))
+                return
+            }
+
             dispatch(setLoading({
                 message: 'Creando cliente'
             }))
 
-            const payload = { ...values }
+            const payload = {
+                ...values,
+                telefonos: flushed.telefonos,
+                telefonoActivo: flushed.telefonoActivo
+            }
 
             apiClient.post('/client', payload, {
                 headers: {
@@ -74,15 +87,13 @@ export default function NewClient({ navigation }) {
                 .catch((e) => {
                     dispatch(clearLoading())
                     dispatch(setAlert({
-                        message: `${e.response?.data || 'Ocurrio un error'}`,
+                        message: `${e.response?.data?.error || e.response?.data || 'Ocurrio un error'}`,
                         type: 'error'
                     }))
                 })
         }
     })
 
-    const [telefonos, setTelefonos] = useState([])
-    const [telefonoInput, setTelefonoInput] = useState('')
     const [location, setLocation] = useState(null)
     const [mapVisible, setMapVisible] = useState(false)
 
@@ -97,21 +108,6 @@ export default function NewClient({ navigation }) {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location])
-
-    const addTelefono = () => {
-        if (telefonoInput.trim() && !isNaN(telefonoInput)) {
-            const newTelefonos = [...telefonos, parseInt(telefonoInput)]
-            setTelefonos(newTelefonos)
-            formik.setFieldValue('telefonos', newTelefonos)
-            setTelefonoInput('')
-        }
-    }
-
-    const removeTelefono = (index) => {
-        const newTelefonos = telefonos.filter((_, i) => i !== index)
-        setTelefonos(newTelefonos)
-        formik.setFieldValue('telefonos', newTelefonos)
-    }
 
     if (isLoadingCreateClient || !hasPermissionCreateClient) {
         return null
@@ -165,33 +161,17 @@ export default function NewClient({ navigation }) {
                             <Text style={styles.errorText}>{formik.errors.nombreCompleto}</Text>
                         )}
                     </View>
-                    <View style={styles.fieldContainer}>
-                        <Text style={styles.fieldLabel}>Teléfonos (Opcional)</Text>
-                        <View style={styles.telefonoContainer}>
-                            <TextInput
-                                style={styles.telefonoInput}
-                                value={telefonoInput}
-                                onChangeText={setTelefonoInput}
-                                placeholder="Ingrese un número de teléfono"
-                                keyboardType="numeric"
-                            />
-                            <TouchableOpacity style={styles.addButton} onPress={addTelefono}>
-                                <Icon name="plus" size={18} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
-                        {telefonos.length > 0 && (
-                            <View style={styles.telefonosList}>
-                                {telefonos.map((telefono, index) => (
-                                    <View key={index} style={styles.telefonoItem}>
-                                        <Text style={styles.telefonoText}>{telefono}</Text>
-                                        <TouchableOpacity onPress={() => removeTelefono(index)} style={styles.removeButtonContainer}>
-                                            <Icon name="trash-2" size={16} color="#ef4444" />
-                                        </TouchableOpacity>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-                    </View>
+                    <PhoneEditor
+                        label="Teléfonos (Opcional)"
+                        telefonos={phones.telefonos}
+                        telefonoActivo={phones.telefonoActivo}
+                        telefonoInput={phones.telefonoInput}
+                        error={phones.error}
+                        onChangeInput={phones.setTelefonoInput}
+                        onAdd={phones.addTelefono}
+                        onRemove={phones.removeTelefono}
+                        onSelect={phones.selectTelefono}
+                    />
                 </View>
 
                 {/* UBICACIÓN */}

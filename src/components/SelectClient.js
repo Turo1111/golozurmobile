@@ -12,6 +12,8 @@ import { useFormik } from 'formik'
 import * as Yup from 'yup'
 import ClienteLocationPicker from './ClienteLocationPicker'
 import FullScreenMapModal from './FullScreenMapModal'
+import PhoneEditor from './PhoneEditor'
+import useClientPhones from '../hooks/useClientPhones'
 
 export default function SelectClient({ cliente, setIdCliente, idCliente }) {
 
@@ -70,8 +72,7 @@ export default function SelectClient({ cliente, setIdCliente, idCliente }) {
         nombreCompleto: Yup.string().required('El nombre completo es obligatorio').min(3, 'El nombre debe tener al menos 3 caracteres')
     })
 
-    const [telefonos, setTelefonos] = useState([])
-    const [telefonoInput, setTelefonoInput] = useState('')
+    const phones = useClientPhones()
     const [location, setLocation] = useState(null)
     const [mapVisible, setMapVisible] = useState(false)
 
@@ -92,8 +93,18 @@ export default function SelectClient({ cliente, setIdCliente, idCliente }) {
                 return
             }
 
+            const flushed = phones.flushPending()
+            if (!flushed.ok) {
+                dispatch(setAlert({ message: flushed.error, type: 'error' }))
+                return
+            }
+
             dispatch(setLoading({ message: 'Creando cliente' }))
-            const payload = { ...values }
+            const payload = {
+                ...values,
+                telefonos: flushed.telefonos,
+                telefonoActivo: flushed.telefonoActivo
+            }
             try {
                 const { data } = await apiClient.post('/client', payload, { headers })
                 dispatch(clearLoading())
@@ -103,13 +114,12 @@ export default function SelectClient({ cliente, setIdCliente, idCliente }) {
                 handleSelect(created)
                 // Reset y volver a lista
                 formik.resetForm()
-                setTelefonos([])
-                setTelefonoInput('')
+                phones.reset()
                 setLocation(null)
                 setShowCreate(false)
             } catch (e) {
                 dispatch(clearLoading())
-                dispatch(setAlert({ message: `${e.response?.data || 'Ocurrio un error'}`, type: 'error' }))
+                dispatch(setAlert({ message: `${e.response?.data?.error || e.response?.data || 'Ocurrio un error'}`, type: 'error' }))
             }
         }
     })
@@ -126,21 +136,6 @@ export default function SelectClient({ cliente, setIdCliente, idCliente }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location])
 
-    const addTelefono = () => {
-        if (telefonoInput.trim() && !isNaN(telefonoInput)) {
-            const newTelefonos = [...telefonos, parseInt(telefonoInput)]
-            setTelefonos(newTelefonos)
-            formik.setFieldValue('telefonos', newTelefonos)
-            setTelefonoInput('')
-        }
-    }
-
-    const removeTelefono = (index) => {
-        const newTelefonos = telefonos.filter((_, i) => i !== index)
-        setTelefonos(newTelefonos)
-        formik.setFieldValue('telefonos', newTelefonos)
-    }
-
     const renderItem = ({ item }) => (
         <TouchableOpacity
             style={[styles.clientRow, selectedId === item._id && styles.clientRowActive]}
@@ -148,6 +143,9 @@ export default function SelectClient({ cliente, setIdCliente, idCliente }) {
         >
             <View style={{ flex: 1 }}>
                 <Text style={styles.clientName}>{item.nombreCompleto}</Text>
+                <Text style={styles.clientSub}>
+                    {item.telefonoActivo || 'Sin teléfono'}
+                </Text>
                 {!!item.address && (
                     <Text style={styles.clientSub}>{item.address}</Text>
                 )}
@@ -227,33 +225,16 @@ export default function SelectClient({ cliente, setIdCliente, idCliente }) {
                                 )}
                             </View>
 
-                            <View style={styles.fieldContainer}>
-                                <Text style={styles.fieldLabel}>Teléfonos *</Text>
-                                <View style={styles.telefonoContainer}>
-                                    <TextInput
-                                        style={styles.telefonoInput}
-                                        value={telefonoInput}
-                                        onChangeText={setTelefonoInput}
-                                        placeholder="Ingrese un número de teléfono"
-                                        keyboardType="numeric"
-                                    />
-                                    <TouchableOpacity style={styles.addButton} onPress={addTelefono}>
-                                        <Icon name="plus" size={18} color="#fff" />
-                                    </TouchableOpacity>
-                                </View>
-                                {telefonos.length > 0 && (
-                                    <View style={styles.telefonosList}>
-                                        {telefonos.map((telefono, index) => (
-                                            <View key={index} style={styles.telefonoItem}>
-                                                <Text style={styles.telefonoText}>{telefono}</Text>
-                                                <TouchableOpacity onPress={() => removeTelefono(index)} style={styles.removeButtonContainer}>
-                                                    <Icon name="trash-2" size={16} color="#ef4444" />
-                                                </TouchableOpacity>
-                                            </View>
-                                        ))}
-                                    </View>
-                                )}
-                            </View>
+                            <PhoneEditor
+                                telefonos={phones.telefonos}
+                                telefonoActivo={phones.telefonoActivo}
+                                telefonoInput={phones.telefonoInput}
+                                error={phones.error}
+                                onChangeInput={phones.setTelefonoInput}
+                                onAdd={phones.addTelefono}
+                                onRemove={phones.removeTelefono}
+                                onSelect={phones.selectTelefono}
+                            />
                         </View>
 
                         <View style={styles.sectionContainer}>
