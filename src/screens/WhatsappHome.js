@@ -293,14 +293,24 @@ function formatSchedule (group) {
 }
 
 function lastSendLabel (group) {
-  if (!group.ultimoEnvioFecha) {
+  const dateValue = group.ultimoEnvioAt || group.ultimoEnvioFecha
+  if (!dateValue) {
     return 'Sin envíos todavía'
   }
+  const dateLabel = group.ultimoEnvioAt ? formatShortDate(group.ultimoEnvioAt) : group.ultimoEnvioFecha
   const result = group.ultimoResultado
   if (result && typeof result === 'object') {
-    return `Último envío ${group.ultimoEnvioFecha}: ${result.enviados ?? 0} enviados · ${result.fallidos ?? 0} fallidos · ${result.omitidosSinTelefono ?? 0} sin teléfono`
+    return `Último envío ${dateLabel}: ${result.enviados ?? 0} enviados · ${result.fallidos ?? 0} fallidos · ${result.omitidosSinTelefono ?? 0} sin teléfono`
   }
-  return `Último envío: ${group.ultimoEnvioFecha}`
+  return `Último envío: ${dateLabel}`
+}
+
+function formatShortDate (value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return String(value).slice(0, 10)
+  }
+  return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
 function errorMessage (error) {
