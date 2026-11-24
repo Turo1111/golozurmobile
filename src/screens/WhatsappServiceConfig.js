@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Clipboard,
   Image,
   ScrollView,
   StyleSheet,
@@ -178,6 +179,14 @@ export default function WhatsappServiceConfig ({ navigation }) {
   const pairingCode = workerStatus.pairingCode
   const commands = Array.isArray(state?.commands) ? state.commands.slice(0, 5) : []
 
+  const copyPairingCode = () => {
+    if (typeof pairingCode !== 'string' || pairingCode === '') {
+      return
+    }
+    Clipboard.setString(pairingCode)
+    Alert.alert('Copiado', 'Código copiado al portapapeles.')
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
@@ -230,7 +239,19 @@ export default function WhatsappServiceConfig ({ navigation }) {
           {session !== 'ready' && (
             <View style={styles.qrBox}>
               {!!qr && <Image source={{ uri: qr }} style={styles.qrImage} resizeMode="contain" />}
-              {!!pairingCode && <Text style={styles.pairingCode}>Código: {pairingCode}</Text>}
+              {!!pairingCode && (
+                <View style={styles.pairingRow}>
+                  <Text style={styles.pairingCode}>Código: {pairingCode}</Text>
+                  <TouchableOpacity
+                    style={styles.copyButton}
+                    onPress={copyPairingCode}
+                    accessibilityRole="button"
+                    accessibilityLabel="Copiar código de emparejamiento"
+                  >
+                    <Icon name="copy" size={18} color={HEADER_BLUE} />
+                  </TouchableOpacity>
+                </View>
+              )}
               {!qr && !pairingCode && (
                 <Text style={styles.helperText}>
                   El worker todavía no publicó un QR. Si está apagado, encendelo y esperá el próximo latido.
@@ -447,7 +468,9 @@ const styles = StyleSheet.create({
   warningText: { color: '#B45309', backgroundColor: '#FFFBEB', padding: 10, borderRadius: 8, fontSize: 12, marginTop: 8 },
   qrBox: { alignItems: 'center', marginTop: 10 },
   qrImage: { width: 220, height: 220, backgroundColor: '#fff' },
-  pairingCode: { fontFamily: 'Cairo-Bold', fontSize: 18, letterSpacing: 2, color: '#111827', marginTop: 8 },
+  pairingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  pairingCode: { fontFamily: 'Cairo-Bold', fontSize: 18, letterSpacing: 2, color: '#111827' },
+  copyButton: { padding: 8, borderRadius: 8, backgroundColor: '#EFF6FF' },
   helperText: { color: '#9CA3AF', fontSize: 12, marginTop: 2 },
   secondaryButton: {
     marginTop: 12,
