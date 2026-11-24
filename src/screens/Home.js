@@ -9,6 +9,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OfflineContext } from '../context.js/contextOffline';
 import { useFocusEffect } from '@react-navigation/native';
+import { WHATSAPP_AUTOMATION_ENABLED } from '../config/features';
 // Eliminar la importación si no se usa en otro lugar
 // import * as Notifications from 'expo-notifications';
 
@@ -127,7 +128,7 @@ export default function Home({ navigation }) {
           {hasPermissionRole && <ModuleCard icon="lock-outline" color="#8e44ad" title="ROLES" subtitle="Permisos y accesos" onPress={() => navigation.navigate('Roles')} />}
           {hasPermissionClient && <ModuleCard icon="account-multiple-outline" color="#e74c3c" title="CLIENTES" subtitle="Administrar clientes" onPress={() => navigation.navigate('Client')} />}
           {hasPermissionUser && <ModuleCard icon="database-sync" color="#2980b9" title="ALMACENAMIENTO" subtitle="Datos locales" onPress={() => navigation.navigate('InfoStorage')} />}
-          {userLocalStorage?.nameRole === 'admin' && <ModuleCard icon="whatsapp" color="#25D366" title="WHATSAPP" subtitle="Difusión por grupos" onPress={() => navigation.navigate('WhatsappHome')} />}
+          {WHATSAPP_AUTOMATION_ENABLED && userLocalStorage?.nameRole === 'admin' && <ModuleCard icon="whatsapp" color="#25D366" title="WHATSAPP" subtitle="Difusión por grupos" onPress={() => navigation.navigate('WhatsappHome')} />}
           {hasPermissionUser && <ModuleCard icon="cog-outline" color="#555" title="CONFIGURACIÓN" subtitle="Ajustes del sistema" onPress={() => navigation.navigate('Settings')} />}
         </View>
 
