@@ -59,6 +59,22 @@ export const RECEIPT_LAYOUT_SOURCE = String.raw`function receiptLayoutEngine() {
         advance(s);
       });
     }
+    function paragraphBounded(text, s, centered, maxWidth) {
+      var limit = Math.min(available, maxWidth);
+      var lines = wrap(text, function (line) { return measure(line, s); }, limit);
+      lines.forEach(function (line) {
+        put(line, centered ? margin + (available - measure(line, s)) / 2 : margin, s);
+        advance(s);
+      });
+    }
+    function paragraphIndented(text, s, indentChars) {
+      var indent = indentChars * measure(' ', s);
+      var lines = wrap(text, function (line) { return measure(line, s); }, available - indent, available);
+      lines.forEach(function (line, index) {
+        put(line, index === 0 ? margin : margin + indent, s);
+        advance(s);
+      });
+    }
     function pair(left, right, s) {
       // Money must remain complete. Reduce just this row if an extreme total
       // cannot fit at the configured scale; never truncate or print overlapping columns.
@@ -87,14 +103,16 @@ export const RECEIPT_LAYOUT_SOURCE = String.raw`function receiptLayoutEngine() {
     paragraph(model.title, titleStyle, true);
     var header = style(model.headerFont, model.headerY, false);
     paragraph(model.date, header, false);
-    paragraph(model.customer, header, false);
+    paragraphIndented(model.customer, header, model.customerIndent || 0);
     // Disclaimer sits above the dashed rule at the operator's request.
-    paragraph(model.footer, style(model.footerFont, model.footerY, false), true);
+    var footerStyle = style(model.footerFont, model.footerY, false);
+    paragraphBounded(model.footer, footerStyle, true, (model.footerColumns || 22) * measure(' ', footerStyle));
     rule();
     var body = style(model.bodyFont, model.bodyY, model.bodyBold);
-    pair('UNIDADES PRODUCTO', 'TOTAL', body);
     model.items.forEach(function (item, index) {
-      pair(item.description, item.amount, body);
+      paragraph(item.description, body, false);
+      if (item.presentation) paragraph(item.presentation, body, false);
+      pair(item.quantity, item.amount, body);
       if (index < model.items.length - 1) y += model.spacing;
     });
     rule();
@@ -104,7 +122,8 @@ export const RECEIPT_LAYOUT_SOURCE = String.raw`function receiptLayoutEngine() {
     }
     var totalStyle = style('A', model.totalY, true);
     totalStyle.x = model.totalX;
-    pair('TOTAL', model.total, totalStyle);
+    paragraph(model.totalLabel || 'Total Neto $', totalStyle, false);
+    paragraph(model.total, totalStyle, true);
     y += model.feed * Math.ceil(model.size * 1.35) + margin;
     if (y > maxHeight) throw new Error('Receipt exceeds height limit');
     return { width: width, height: Math.ceil(y), spans: spans, rules: rules };

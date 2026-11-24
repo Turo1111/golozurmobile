@@ -1,4 +1,4 @@
-import { formatDateTime, formatMoney } from './ticket';
+import { formatAmount, formatDateOnly, formatMoney, formatShortMoney } from './ticket';
 import { normalizeTicketConfig } from './ticketConfig';
 import { PrintingError } from './printingOperation';
 
@@ -12,8 +12,10 @@ export const createRasterModel = (data, config) => {
     throw new PrintingError('raster', 'Receipt amounts exceed the safe monetary range. Check the sale before printing.');
   }
   const items = data.items.map((item) => ({
-    description: `${item.cantidad} ${item.descripcion}`,
-    amount: formatMoney(item.total),
+    description: String(item.descripcion ?? '').toUpperCase(),
+    presentation: String(item.presentacion ?? ''),
+    quantity: `${item.cantidad}x${formatShortMoney(item.precioUnitario)}`,
+    amount: formatShortMoney(item.total),
   }));
   const subtotal = data.items.reduce((sum, item) => sum + item.total, 0);
   if (!Number.isFinite(subtotal) || Math.abs(subtotal) > Number.MAX_SAFE_INTEGER / 100) {
@@ -24,11 +26,12 @@ export const createRasterModel = (data, config) => {
     throw new PrintingError('raster', 'Receipt adjustment exceeds the safe monetary range. Check the sale before printing.');
   }
   return {
-    title: 'GOLOZUR', date: `Fecha: ${formatDateTime(data.fecha)}`,
-    customer: `Cliente: ${data.cliente}`, items, total: formatMoney(data.total),
+    title: 'GOLOZUR', date: `Fecha: ${formatDateOnly(data.fecha)}`,
+    customer: `Cliente: ${data.cliente}`, customerIndent: 2, items,
+    totalLabel: 'Total Neto $', total: formatAmount(data.total),
     subtotal: adjustment ? formatMoney(subtotal) : null,
     adjustment: adjustment ? formatMoney(adjustment) : null,
-    footer: '*NO VALIDO COMO FACTURA',
+    footer: '*NO VALIDO COMO FACTURA', footerColumns: 22,
     size: cfg.mxw01TextSize,
     titleX: cfg.titleWidthMultiplier, titleY: cfg.titleHeightMultiplier,
     headerFont: cfg.headerFont, headerY: cfg.headerHeightMultiplier,
