@@ -190,12 +190,6 @@ export const buildSaleTicket = (ticketData, cfg = TICKET_CONFIG_DEFAULTS) => {
     const description = String(item?.descripcion ?? '').toUpperCase();
     wrapIndented(description, bodyColumns, 0).forEach((line) => parts.push(text(line)));
 
-    // Presentación ("X1KG") en su propia línea cuando el nombre no la incluye.
-    const presentation = String(item?.presentacion ?? '');
-    if (presentation !== '') {
-      parts.push(text(presentation));
-    }
-
     // Renglón de precio: cantidad x unitario a la izquierda, total a la derecha.
     const quantity = `${item?.cantidad ?? 0}x${formatShortMoney(item?.precioUnitario)}`;
     parts.push(twoColumns(quantity, formatShortMoney(item?.total), bodyColumns));

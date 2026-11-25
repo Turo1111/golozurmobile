@@ -111,7 +111,6 @@ export const RECEIPT_LAYOUT_SOURCE = String.raw`function receiptLayoutEngine() {
     var body = style(model.bodyFont, model.bodyY, model.bodyBold);
     model.items.forEach(function (item, index) {
       paragraph(item.description, body, false);
-      if (item.presentation) paragraph(item.presentation, body, false);
       pair(item.quantity, item.amount, body);
       if (index < model.items.length - 1) y += model.spacing;
     });

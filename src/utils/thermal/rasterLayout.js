@@ -13,7 +13,6 @@ export const createRasterModel = (data, config) => {
   }
   const items = data.items.map((item) => ({
     description: String(item.descripcion ?? '').toUpperCase(),
-    presentation: String(item.presentacion ?? ''),
     quantity: `${item.cantidad}x${formatShortMoney(item.precioUnitario)}`,
     amount: formatShortMoney(item.total),
   }));

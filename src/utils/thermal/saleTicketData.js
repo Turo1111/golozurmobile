@@ -23,22 +23,8 @@ export const resolveUnitPrice = (item) => {
   return 0;
 };
 
-// Presentación del producto ("X1KG") a partir de `peso`. Si la descripción ya
-// la incluye (p. ej. "MANI SALADO X1KG") no se repite en una línea aparte.
-export const resolvePresentation = (item) => {
-  const descripcion = String(item?.descripcion ?? item?.producto?.descripcion ?? '');
-  const peso = item?.peso ?? item?.producto?.peso;
-  const cantidad = toFiniteNumber(peso?.cantidad);
-  const unidad = typeof peso?.unidad === 'string' ? peso.unidad.trim() : '';
-  if (cantidad === null || unidad === '') return '';
-  const amount = Number.isInteger(cantidad) ? String(cantidad) : String(cantidad).replace('.', ',');
-  const presentacion = `X${amount}${unidad}`.toUpperCase();
-  return descripcion.toUpperCase().includes(presentacion) ? '' : presentacion;
-};
-
 export const normalizeItem = (item) => ({
   descripcion: String(item?.descripcion ?? item?.producto?.descripcion ?? ''),
-  presentacion: resolvePresentation(item),
   cantidad: toFiniteNumber(item?.cantidad) ?? 0,
   precioUnitario: resolveUnitPrice(item),
   total: toFiniteNumber(item?.total) ?? 0,
